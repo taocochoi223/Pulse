@@ -14,9 +14,11 @@ interface ServerState {
   setActiveChannel: (channel: Channel) => Promise<void>;
   fetchServers: () => Promise<void>;
   createServer: (name: string, description?: string) => Promise<Server>;
+  updateServer: (serverId: string, name: string, description?: string) => Promise<Server>;
   joinServer: (inviteCode: string) => Promise<Server>;
   deleteOrLeaveServer: (serverId: string) => Promise<void>;
   createChannel: (name: string, type: 1 | 2, topic?: string) => Promise<Channel>;
+  updateChannel: (channelId: string, name: string, topic?: string) => Promise<Channel>;
   deleteChannel: (channelId: string) => Promise<void>;
   updateMemberPresence: (userId: string, status: UserStatus) => void;
 }
@@ -115,6 +117,19 @@ export const useServerStore = create<ServerState>((set, get) => ({
     return data;
   },
 
+  updateServer: async (serverId: string, name: string, description?: string) => {
+    const { data } = await apiClient.put<Server>(`/server/${serverId}`, {
+      name,
+      description: description ?? null,
+    });
+    set((state) => ({
+      servers: state.servers.map((s) => (s.id === serverId ? data : s)),
+      activeServer: state.activeServer?.id === serverId ? data : state.activeServer,
+    }));
+    await db.servers.put(data);
+    return data;
+  },
+
   joinServer: async (inviteCode: string) => {
     const cleanCode = inviteCode.trim();
     const { data } = await apiClient.post<Server>(`/server/join/${encodeURIComponent(cleanCode)}`);
@@ -163,6 +178,27 @@ export const useServerStore = create<ServerState>((set, get) => ({
     set({ activeServer: updatedServer });
 
     await get().setActiveChannel(data);
+    return data;
+  },
+
+  updateChannel: async (channelId: string, name: string, topic?: string) => {
+    const { data } = await apiClient.put<Channel>(`/channel/${channelId}`, {
+      name,
+      topic: topic ?? null,
+    });
+
+    const activeServer = get().activeServer;
+    if (activeServer) {
+      const updatedChannels = (activeServer.channels || []).map((c) =>
+        c.id === channelId ? data : c
+      );
+      set({ activeServer: { ...activeServer, channels: updatedChannels } });
+    }
+
+    if (get().activeChannel?.id === channelId) {
+      set({ activeChannel: data });
+    }
+
     return data;
   },
 

@@ -9,12 +9,12 @@ import { MemberList } from './components/layout/MemberList';
 import { VirtualizedMessageList } from './components/chat/VirtualizedMessageList';
 import { MessageInput } from './components/chat/MessageInput';
 import { GroupMeetingStage } from './components/voice/GroupMeetingStage';
-import { Hash, Sparkles, Volume2, Search, Pin, Users, X } from 'lucide-react';
+import { Hash, Sparkles, Volume2, Search, Pin, Users, X, Pencil, Check } from 'lucide-react';
 import type { Message, VoiceParticipant } from './types';
 
 export const App: React.FC = () => {
   const { isAuthenticated, initAuth, login, register } = useAuthStore();
-  const { activeChannel, activeServer, fetchServers, updateMemberPresence } = useServerStore();
+  const { activeChannel, activeServer, fetchServers, updateChannel, updateMemberPresence } = useServerStore();
   const {
     messages,
     fetchMessages,
@@ -42,6 +42,9 @@ export const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showPinnedPopover, setShowPinnedPopover] = useState(false);
   const [showMemberList, setShowMemberList] = useState(true);
+  const [isEditingHeaderChannel, setIsEditingHeaderChannel] = useState(false);
+  const [headerChannelName, setHeaderChannelName] = useState('');
+  const [headerChannelTopic, setHeaderChannelTopic] = useState('');
 
   useEffect(() => {
     initAuth();
@@ -285,15 +288,78 @@ export const App: React.FC = () => {
             ) : (
               <Hash className="w-5 h-5 text-pulse-muted shrink-0" />
             )}
-            <h1 className="font-bold text-white text-base truncate">
-              {activeChannel ? activeChannel.name : 'Chọn một kênh'}
-            </h1>
-            {activeChannel?.topic && (
+
+            {isEditingHeaderChannel && activeChannel ? (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!headerChannelName.trim()) return;
+                  await updateChannel(
+                    activeChannel.id,
+                    headerChannelName.trim(),
+                    headerChannelTopic.trim() || undefined
+                  );
+                  setIsEditingHeaderChannel(false);
+                }}
+                className="flex items-center space-x-2"
+              >
+                <input
+                  type="text"
+                  value={headerChannelName}
+                  onChange={(e) => setHeaderChannelName(e.target.value)}
+                  placeholder="Tên kênh..."
+                  className="bg-pulse-card border border-pulse-accent rounded px-2 py-0.5 text-sm font-bold text-white w-36 focus:outline-none"
+                  autoFocus
+                />
+                <input
+                  type="text"
+                  value={headerChannelTopic}
+                  onChange={(e) => setHeaderChannelTopic(e.target.value)}
+                  placeholder="Chủ đề kênh..."
+                  className="bg-pulse-card border border-pulse-border rounded px-2 py-0.5 text-xs text-white w-48 hidden sm:inline focus:outline-none focus:border-pulse-accent"
+                />
+                <button
+                  type="submit"
+                  title="Lưu tên kênh"
+                  className="p-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingHeaderChannel(false)}
+                  title="Huỷ"
+                  className="p-1 rounded bg-pulse-card hover:bg-pulse-hover text-pulse-muted hover:text-white"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </form>
+            ) : (
               <>
-                <span className="text-pulse-muted hidden sm:inline">|</span>
-                <span className="text-xs text-pulse-muted truncate max-w-md hidden sm:inline">
-                  {activeChannel.topic}
-                </span>
+                <h1 className="font-bold text-white text-base truncate">
+                  {activeChannel ? activeChannel.name : 'Chọn một kênh'}
+                </h1>
+                {activeChannel && (
+                  <button
+                    onClick={() => {
+                      setHeaderChannelName(activeChannel.name);
+                      setHeaderChannelTopic(activeChannel.topic || '');
+                      setIsEditingHeaderChannel(true);
+                    }}
+                    title="Đổi tên kênh & chủ đề"
+                    className="p-1 rounded hover:bg-pulse-hover text-pulse-muted hover:text-white transition"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {activeChannel?.topic && (
+                  <>
+                    <span className="text-pulse-muted hidden sm:inline">|</span>
+                    <span className="text-xs text-pulse-muted truncate max-w-md hidden sm:inline">
+                      {activeChannel.topic}
+                    </span>
+                  </>
+                )}
               </>
             )}
           </div>

@@ -11,6 +11,7 @@ import {
   UserPlus,
   Check,
   Trash2,
+  Pencil,
   Settings,
   X,
   MicOff,
@@ -24,6 +25,7 @@ export const ChannelSidebar: React.FC = () => {
     activeChannel,
     setActiveChannel,
     createChannel,
+    updateChannel,
     deleteChannel,
     deleteOrLeaveServer,
     fetchServers,
@@ -36,6 +38,12 @@ export const ChannelSidebar: React.FC = () => {
   const [channelTopic, setChannelTopic] = useState('');
   const [channelType, setChannelType] = useState<1 | 2>(1);
   const [copiedInvite, setCopiedInvite] = useState(false);
+
+  // Edit Channel Modal State
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+  const [editChannelName, setEditChannelName] = useState('');
+  const [editChannelTopic, setEditChannelTopic] = useState('');
+  const [isUpdatingChannel, setIsUpdatingChannel] = useState(false);
 
   // User Profile Settings Modal
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -65,6 +73,29 @@ export const ChannelSidebar: React.FC = () => {
     setChannelName('');
     setChannelTopic('');
     setIsModalOpen(false);
+  };
+
+  const openEditChannelModal = (channel: Channel, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingChannel(channel);
+    setEditChannelName(channel.name);
+    setEditChannelTopic(channel.topic || '');
+  };
+
+  const handleUpdateChannel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChannel || !editChannelName.trim() || isUpdatingChannel) return;
+    setIsUpdatingChannel(true);
+    try {
+      await updateChannel(
+        editingChannel.id,
+        editChannelName.trim(),
+        editChannelTopic.trim() || undefined
+      );
+      setEditingChannel(null);
+    } finally {
+      setIsUpdatingChannel(false);
+    }
   };
 
   const handleChannelClick = (channel: Channel) => {
@@ -194,18 +225,27 @@ export const ChannelSidebar: React.FC = () => {
                       <Hash className="w-4 h-4 text-pulse-muted shrink-0" />
                       <span className="truncate">{channel.name}</span>
                     </div>
-                    {textChannels.length > 1 && (
+                    <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteChannel(channel.id);
-                        }}
-                        title="Xoá kênh"
-                        className="opacity-0 group-hover:opacity-100 text-pulse-muted hover:text-rose-400 p-0.5 transition"
+                        onClick={(e) => openEditChannelModal(channel, e)}
+                        title="Đổi tên / Chỉnh sửa kênh"
+                        className="text-pulse-muted hover:text-white p-0.5 rounded hover:bg-pulse-card transition"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Pencil className="w-3.5 h-3.5" />
                       </button>
-                    )}
+                      {textChannels.length > 1 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteChannel(channel.id);
+                          }}
+                          title="Xoá kênh"
+                          className="text-pulse-muted hover:text-rose-400 p-0.5 rounded hover:bg-pulse-card transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -253,6 +293,27 @@ export const ChannelSidebar: React.FC = () => {
                       </div>
 
                       <div className="flex items-center space-x-1">
+                        <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition">
+                          <button
+                            onClick={(e) => openEditChannelModal(channel, e)}
+                            title="Đổi tên phòng họp"
+                            className="text-pulse-muted hover:text-white p-0.5 rounded hover:bg-pulse-card transition"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          {voiceChannels.length > 1 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteChannel(channel.id);
+                              }}
+                              title="Xoá phòng họp"
+                              className="text-pulse-muted hover:text-rose-400 p-0.5 rounded hover:bg-pulse-card transition"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                         {roomMembers.length > 0 && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
                             {roomMembers.length}
@@ -398,6 +459,68 @@ export const ChannelSidebar: React.FC = () => {
                   className="px-4 py-2 text-sm bg-pulse-accent hover:bg-pulse-accentHover text-white font-semibold rounded-lg transition"
                 >
                   Tạo Kênh
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Channel Modal */}
+      {editingChannel && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-pulse-card border border-pulse-border rounded-2xl p-6 w-96 shadow-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold text-white">
+                Chỉnh Sửa {editingChannel.type === 1 ? 'Kênh Chat' : 'Phòng Họp'}
+              </h3>
+              <button
+                onClick={() => setEditingChannel(null)}
+                className="text-pulse-muted hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateChannel} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-1.5">
+                  Tên Kênh / Phòng
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editChannelName}
+                  onChange={(e) => setEditChannelName(e.target.value)}
+                  placeholder="Nhập tên kênh mới..."
+                  className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-1.5">
+                  Chủ đề (Topic)
+                </label>
+                <input
+                  type="text"
+                  value={editChannelTopic}
+                  onChange={(e) => setEditChannelTopic(e.target.value)}
+                  placeholder="Mô tả chủ đề của kênh..."
+                  className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditingChannel(null)}
+                  className="px-4 py-2 text-sm text-pulse-muted hover:text-white"
+                >
+                  Huỷ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingChannel}
+                  className="px-5 py-2 text-sm bg-pulse-accent hover:bg-pulse-accentHover text-white font-semibold rounded-lg transition shadow-lg shadow-pulse-accent/25"
+                >
+                  {isUpdatingChannel ? 'Đang lưu...' : 'Lưu Thay Đổi'}
                 </button>
               </div>
             </form>

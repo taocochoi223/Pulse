@@ -1,7 +1,18 @@
 import * as signalR from '@microsoft/signalr';
 import type { Message, VoiceParticipant } from '../types';
 
-const HUB_URL = import.meta.env.VITE_HUB_URL || 'http://localhost:5000/hubs/chat';
+const getDefaultHubUrl = (): string => {
+  const envHub = import.meta.env.VITE_HUB_URL;
+  if (envHub && !envHub.includes('localhost')) {
+    return envHub;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname && window.location.hostname !== 'localhost') {
+    return `http://${window.location.hostname}:5000/hubs/chat`;
+  }
+  return envHub || 'http://localhost:5000/hubs/chat';
+};
+
+const HUB_URL = getDefaultHubUrl();
 
 class SignalRService {
   private connection: signalR.HubConnection | null = null;

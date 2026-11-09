@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: pulse-backend-api
+    runtime: docker
+    dockerfilePath: ./infra/docker/Dockerfile.backend
+    dockerContext: .
+    region: singapore
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_URLS
+        value: http://+:5000
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: JWT_ISSUER
+        value: PulseAuthServer
+      - key: JWT_AUDIENCE
+        value: PulseClientApp
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false

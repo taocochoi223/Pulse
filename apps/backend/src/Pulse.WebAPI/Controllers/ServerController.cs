@@ -9,6 +9,8 @@ using Pulse.Application.Features.Servers.Queries;
 
 namespace Pulse.WebAPI.Controllers;
 
+public record UpdateServerRequest(string Name, string? Description);
+
 [Authorize]
 public class ServerController : ApiControllerBase
 {
@@ -46,6 +48,34 @@ public class ServerController : ApiControllerBase
     public async Task<ActionResult<ServerDto>> GetServerById(Guid id)
     {
         var result = await Mediator.Send(new GetServerDetailsQuery(id));
+        return Ok(result);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<ServerDto>> UpdateServer(
+        Guid id,
+        [FromBody] UpdateServerRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId ?? throw new UnauthorizedException();
+
+        var server = await _context.Servers
+            .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted, cancellationToken)
+            ?? throw new NotFoundException("Server", id);
+
+        if (server.OwnerId != userId)
+            throw new UnauthorizedException("Only the server owner can rename the server.");
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            server.Name = request.Name.Trim();
+        }
+        server.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        server.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var result = await Mediator.Send(new GetServerDetailsQuery(id), cancellationToken);
         return Ok(result);
     }
 

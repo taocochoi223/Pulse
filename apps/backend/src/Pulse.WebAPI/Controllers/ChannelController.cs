@@ -6,8 +6,11 @@ using Pulse.Application.Common.Interfaces;
 using Pulse.Application.Features.Channels.Commands;
 using Pulse.Application.Features.Channels.Dtos;
 using Pulse.Application.Features.Channels.Queries;
+using Pulse.Domain.Enums;
 
 namespace Pulse.WebAPI.Controllers;
+
+public record UpdateChannelRequest(string Name, string? Topic);
 
 [Authorize]
 public class ChannelController : ApiControllerBase
@@ -33,6 +36,48 @@ public class ChannelController : ApiControllerBase
     {
         var result = await Mediator.Send(new GetServerChannelsQuery(serverId));
         return Ok(result);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<ChannelDto>> UpdateChannel(
+        Guid id,
+        [FromBody] UpdateChannelRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId ?? throw new UnauthorizedException();
+
+        var channel = await _context.Channels
+            .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, cancellationToken)
+            ?? throw new NotFoundException("Channel", id);
+
+        var isMember = await _context.Members
+            .AnyAsync(m => m.ServerId == channel.ServerId && m.UserId == userId, cancellationToken);
+
+        if (!isMember)
+            throw new UnauthorizedException("You are not a member of this server.");
+
+        if (!string.IsNullOrWhiteSpace(request.Name))
+        {
+            var trimmed = request.Name.Trim();
+            channel.Name = channel.Type == ChannelType.Text
+                ? trimmed.ToLower().Replace(' ', '-')
+                : trimmed;
+        }
+
+        channel.Topic = string.IsNullOrWhiteSpace(request.Topic) ? null : request.Topic.Trim();
+        channel.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Ok(new ChannelDto(
+            channel.Id,
+            channel.ServerId,
+            channel.Name,
+            channel.Topic,
+            channel.Type,
+            channel.Position,
+            channel.CreatedAt
+        ));
     }
 
     [HttpDelete("{id:guid}")]
