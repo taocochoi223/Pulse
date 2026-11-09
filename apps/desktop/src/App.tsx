@@ -155,9 +155,17 @@ export const App: React.FC = () => {
     };
 
     const handleVoiceParticipantsUpdated = (e: Event) => {
-      const customEvent = e as CustomEvent<{ channelId: string; participants: VoiceParticipant[] }>;
+      const customEvent = e as CustomEvent<{
+        channelId: string;
+        participants: VoiceParticipant[];
+        startedAt?: string | null;
+      }>;
       if (customEvent.detail) {
-        setChannelParticipants(customEvent.detail.channelId, customEvent.detail.participants || []);
+        setChannelParticipants(
+          customEvent.detail.channelId,
+          customEvent.detail.participants || [],
+          customEvent.detail.startedAt
+        );
       }
     };
 

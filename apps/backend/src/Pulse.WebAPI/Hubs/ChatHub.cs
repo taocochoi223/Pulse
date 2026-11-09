@@ -26,6 +26,8 @@ public class ChatHub : Hub
 
     // ChannelId -> (ConnectionId -> VoiceParticipantDto)
     private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, VoiceParticipantDto>> VoiceRooms = new();
+    // ChannelId -> StartedAt (first participant joined timestamp)
+    private static readonly ConcurrentDictionary<Guid, DateTimeOffset> VoiceRoomStartedAt = new();
     // ConnectionId -> ChannelId
     private static readonly ConcurrentDictionary<string, Guid> ConnectionVoiceRoomMap = new();
 
@@ -68,6 +70,10 @@ public class ChatHub : Hub
             if (VoiceRooms.TryGetValue(voiceChannelId, out var participants))
             {
                 participants.TryRemove(Context.ConnectionId, out _);
+                if (participants.IsEmpty)
+                {
+                    VoiceRoomStartedAt.TryRemove(voiceChannelId, out _);
+                }
                 await BroadcastVoiceRoomStateAsync(voiceChannelId);
             }
         }
@@ -126,11 +132,23 @@ public class ChatHub : Hub
             if (VoiceRooms.TryGetValue(oldChannelId, out var oldRoom))
             {
                 oldRoom.TryRemove(Context.ConnectionId, out _);
+                if (oldRoom.IsEmpty)
+                {
+                    VoiceRoomStartedAt.TryRemove(oldChannelId, out _);
+                }
                 await BroadcastVoiceRoomStateAsync(oldChannelId);
             }
         }
 
         var room = VoiceRooms.GetOrAdd(channelId, _ => new ConcurrentDictionary<string, VoiceParticipantDto>());
+        if (room.IsEmpty)
+        {
+            VoiceRoomStartedAt[channelId] = DateTimeOffset.UtcNow;
+        }
+        else
+        {
+            VoiceRoomStartedAt.GetOrAdd(channelId, _ => DateTimeOffset.UtcNow);
+        }
 
         // Deduplicate same user identity if reconnecting
         foreach (var kvp in room.Where(x => x.Value.Identity == identity && x.Key != Context.ConnectionId).ToList())
@@ -170,6 +188,10 @@ public class ChatHub : Hub
         if (VoiceRooms.TryGetValue(channelId, out var room))
         {
             room.TryRemove(Context.ConnectionId, out _);
+            if (room.IsEmpty)
+            {
+                VoiceRoomStartedAt.TryRemove(channelId, out _);
+            }
             await BroadcastVoiceRoomStateAsync(channelId);
         }
 
@@ -229,10 +251,17 @@ public class ChatHub : Hub
             ? room.Values.ToList()
             : new List<VoiceParticipantDto>();
 
+        DateTimeOffset? startedAt = null;
+        if (list.Count > 0 && VoiceRoomStartedAt.TryGetValue(channelId, out var ts))
+        {
+            startedAt = ts;
+        }
+
         await Clients.All.SendAsync("VoiceParticipantsUpdated", new
         {
             ChannelId = channelId,
-            Participants = list
+            Participants = list,
+            StartedAt = startedAt
         });
     }
 

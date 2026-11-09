@@ -11,12 +11,17 @@ interface VoiceState {
   isScreenSharing: boolean;
   participants: VoiceParticipant[];
   channelParticipantsMap: { [channelId: string]: VoiceParticipant[] };
+  roomStartedAtMap: { [channelId: string]: number }; // channelId -> epoch ms of first participant
   joinVoiceRoom: (channel: Channel) => Promise<void>;
   leaveVoiceRoom: () => Promise<void>;
   toggleMute: () => Promise<void>;
   toggleCamera: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
-  setChannelParticipants: (channelId: string, participants: VoiceParticipant[]) => void;
+  setChannelParticipants: (
+    channelId: string,
+    participants: VoiceParticipant[],
+    startedAtIso?: string | null
+  ) => void;
 }
 
 export const useVoiceStore = create<VoiceState>((set, get) => ({
@@ -27,6 +32,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   isScreenSharing: false,
   participants: [],
   channelParticipantsMap: {},
+  roomStartedAtMap: {},
 
   joinVoiceRoom: async (channel: Channel) => {
     if (get().activeVoiceChannel?.id === channel.id && get().isConnected) return;
@@ -36,29 +42,41 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     }
 
     const user = useAuthStore.getState().user;
-    const displayName = user?.displayName || user?.username || 'Member';
+    const displayName = user?.displayName || user?.username || 'Thành viên';
     const avatarUrl = user?.avatarUrl;
 
-    set({
+    set((state) => ({
       activeVoiceChannel: channel,
       isConnected: true,
       isMuted: false,
       isCameraOn: false,
       isScreenSharing: false,
-    });
+      roomStartedAtMap: {
+        ...state.roomStartedAtMap,
+        // Nếu phòng chưa có mốc bắt đầu thì lấy thời điểm người đầu tiên vào
+        [channel.id]: state.roomStartedAtMap[channel.id] || Date.now(),
+      },
+    }));
 
     try {
       await liveKitService.joinRoom(channel.id, displayName, avatarUrl, (participants) => {
-        set((state) => ({
-          participants,
-          channelParticipantsMap: {
-            ...state.channelParticipantsMap,
-            [channel.id]: participants,
-          },
-        }));
+        set((state) => {
+          const existingStart = state.roomStartedAtMap[channel.id] || Date.now();
+          return {
+            participants,
+            channelParticipantsMap: {
+              ...state.channelParticipantsMap,
+              [channel.id]: participants,
+            },
+            roomStartedAtMap: {
+              ...state.roomStartedAtMap,
+              [channel.id]: existingStart,
+            },
+          };
+        });
       });
     } catch (err) {
-      console.error('Failed to join voice room:', err);
+      console.error('Lỗi khi tham gia phòng họp:', err);
     }
   },
 
@@ -67,8 +85,15 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     await liveKitService.leaveRoom();
     set((state) => {
       const updatedMap = { ...state.channelParticipantsMap };
+      const updatedStartMap = { ...state.roomStartedAtMap };
       if (oldChannelId) {
-        delete updatedMap[oldChannelId];
+        const remaining = (updatedMap[oldChannelId] || []).filter((p) => !p.isLocal);
+        if (remaining.length === 0) {
+          delete updatedMap[oldChannelId];
+          delete updatedStartMap[oldChannelId];
+        } else {
+          updatedMap[oldChannelId] = remaining;
+        }
       }
       return {
         activeVoiceChannel: null,
@@ -78,6 +103,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         isCameraOn: false,
         isScreenSharing: false,
         channelParticipantsMap: updatedMap,
+        roomStartedAtMap: updatedStartMap,
       };
     });
   },
@@ -97,12 +123,32 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     set({ isScreenSharing });
   },
 
-  setChannelParticipants: (channelId: string, participants: VoiceParticipant[]) => {
-    set((state) => ({
-      channelParticipantsMap: {
-        ...state.channelParticipantsMap,
-        [channelId]: participants,
-      },
-    }));
+  setChannelParticipants: (
+    channelId: string,
+    participants: VoiceParticipant[],
+    startedAtIso?: string | null
+  ) => {
+    set((state) => {
+      const updatedStartMap = { ...state.roomStartedAtMap };
+      if (!participants || participants.length === 0) {
+        // Khi người cuối cùng rời phòng họp -> xoá mốc thời gian
+        delete updatedStartMap[channelId];
+      } else if (startedAtIso) {
+        const parsed = Date.parse(startedAtIso);
+        if (!Number.isNaN(parsed)) {
+          updatedStartMap[channelId] = parsed;
+        }
+      } else if (!updatedStartMap[channelId]) {
+        updatedStartMap[channelId] = Date.now();
+      }
+
+      return {
+        channelParticipantsMap: {
+          ...state.channelParticipantsMap,
+          [channelId]: participants,
+        },
+        roomStartedAtMap: updatedStartMap,
+      };
+    });
   },
 }));

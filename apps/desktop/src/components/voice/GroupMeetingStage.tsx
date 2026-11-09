@@ -25,6 +25,18 @@ interface GroupMeetingStageProps {
   channel: Channel;
 }
 
+export const formatCallDuration = (seconds: number): string => {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (hrs > 0) {
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs
+      .toString()
+      .padStart(2, '0')}`;
+  }
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
 export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel }) => {
   const {
     isConnected,
@@ -32,6 +44,7 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
     isCameraOn,
     isScreenSharing,
     participants,
+    roomStartedAtMap,
     joinVoiceRoom,
     leaveVoiceRoom,
     toggleMute,
@@ -52,40 +65,43 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
     hasMore,
   } = useMessageStore();
 
-  const [callDuration, setCallDuration] = useState(0);
   const [isMeetingChatOpen, setIsMeetingChatOpen] = useState(false);
 
-  // Auto-join meeting room when viewing this channel
+  // Tự động tham gia phòng họp khi bấm vào kênh Voice (nếu chưa ở trong phòng này)
   useEffect(() => {
     if (!isConnected || activeVoiceChannel?.id !== channel.id) {
       joinVoiceRoom(channel);
     }
   }, [channel.id]);
 
-  // Load meeting room text messages when chat drawer opens
+  // Tải tin nhắn chat trong phòng họp khi mở ngăn chat
   useEffect(() => {
     if (isMeetingChatOpen) {
       fetchMessages(channel.id);
     }
   }, [isMeetingChatOpen, channel.id, fetchMessages]);
 
-  // Call duration timer
+  // Tính thời gian cuộc họp từ lúc người đầu tiên vào phòng đến khi người cuối cùng rời phòng
+  const startedAtMs = roomStartedAtMap[channel.id];
+  const [callDuration, setCallDuration] = useState<number>(() =>
+    startedAtMs ? Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000)) : 0
+  );
+
   useEffect(() => {
-    if (!isConnected) {
+    const start = roomStartedAtMap[channel.id];
+    if (!start) {
       setCallDuration(0);
       return;
     }
-    const timer = setInterval(() => {
-      setCallDuration((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [isConnected]);
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+    const updateTimer = () => {
+      setCallDuration(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+    };
+
+    updateTimer();
+    const timer = setInterval(updateTimer, 1000);
+    return () => clearInterval(timer);
+  }, [channel.id, roomStartedAtMap]);
 
   const handleLeaveMeeting = async () => {
     await leaveVoiceRoom();
@@ -95,7 +111,7 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
     }
   };
 
-  // Fallback local participant if list hasn't populated yet
+  // Hiển thị người tham gia
   const displayParticipants: VoiceParticipant[] =
     participants.length > 0
       ? participants
@@ -114,9 +130,9 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
 
   return (
     <div className="flex-1 flex h-full bg-[#0d0f15] select-none relative overflow-hidden">
-      {/* Left/Main Stage */}
+      {/* Sân khấu chính */}
       <div className="flex-1 flex flex-col h-full relative min-w-0">
-        {/* 1. Meeting Header */}
+        {/* 1. Thanh tiêu đề Phòng họp */}
         <div className="h-14 border-b border-pulse-border/60 px-6 flex items-center justify-between shrink-0 bg-pulse-panel/40 backdrop-blur-sm z-10">
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-emerald-400 text-xs font-semibold">
@@ -129,8 +145,11 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
               <span>{channel.name}</span>
             </h2>
 
-            <div className="text-xs text-pulse-muted font-mono bg-pulse-card px-2 py-0.5 rounded">
-              {formatDuration(callDuration)}
+            <div
+              title="Thời gian cuộc họp (tính từ khi người đầu tiên vào phòng)"
+              className="text-xs text-emerald-400 font-mono font-bold bg-pulse-card border border-emerald-500/30 px-2.5 py-0.5 rounded-md"
+            >
+              {formatCallDuration(callDuration)}
             </div>
           </div>
 
@@ -144,7 +163,7 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
           </div>
         </div>
 
-        {/* 2. Meeting Stage / Video & Audio Grid */}
+        {/* 2. Lưới Video / Avatar thành viên */}
         <div className="flex-1 p-4 md:p-6 pb-24 flex items-center justify-center overflow-y-auto">
           <div
             className={`w-full h-full max-h-[78vh] grid gap-4 transition-all ${
@@ -166,9 +185,9 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
           </div>
         </div>
 
-        {/* 3. Floating Bottom Action Toolbar */}
+        {/* 3. Thanh điều khiển cuộc họp bên dưới */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center space-x-3 px-6 py-3 bg-pulse-panel/90 backdrop-blur-md border border-pulse-border rounded-2xl shadow-2xl z-20">
-          {/* Microphone Toggle */}
+          {/* Bật/Tắt Micro */}
           <button
             onClick={toggleMute}
             title={isMuted ? 'Bật Micro' : 'Tắt Micro'}
@@ -181,7 +200,7 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
             {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
 
-          {/* Camera Toggle */}
+          {/* Bật/Tắt Camera */}
           <button
             onClick={toggleCamera}
             title={isCameraOn ? 'Tắt Camera' : 'Bật Camera'}
@@ -194,7 +213,7 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
             {isCameraOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
           </button>
 
-          {/* Screen Share Toggle */}
+          {/* Chia sẻ màn hình */}
           <button
             onClick={toggleScreenShare}
             title={isScreenSharing ? 'Dừng Chia Sẻ Màn Hình' : 'Chia Sẻ Màn Hình'}
@@ -207,10 +226,10 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
             <Monitor className="w-5 h-5" />
           </button>
 
-          {/* In-Meeting Text Chat Toggle */}
+          {/* Mở khung Chat trong cuộc họp */}
           <button
             onClick={() => setIsMeetingChatOpen((prev) => !prev)}
-            title="Mở Khung Chat Trong Cuộc Họp"
+            title="Mở Khung Trò Chuyện Trong Cuộc Họp"
             className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
               isMeetingChatOpen
                 ? 'bg-pulse-accent text-white shadow-lg shadow-pulse-accent/30'
@@ -220,12 +239,12 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
             <MessageSquare className="w-5 h-5" />
           </button>
 
-          {/* Audio & Video Device Selector */}
+          {/* Chọn thiết bị Micro & Camera */}
           <AudioDeviceSelector />
 
           <div className="w-[1px] h-6 bg-pulse-border mx-1" />
 
-          {/* Leave Meeting Button */}
+          {/* Rời phòng họp */}
           <button
             onClick={handleLeaveMeeting}
             title="Rời Phòng Họp"
@@ -237,13 +256,13 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
         </div>
       </div>
 
-      {/* Right Drawer: In-Meeting Chat */}
+      {/* Ngăn kéo bên phải: Trò chuyện trong cuộc họp */}
       {isMeetingChatOpen && (
         <div className="w-80 md:w-96 border-l border-pulse-border bg-pulse-panel flex flex-col h-full shrink-0 z-20">
           <div className="h-14 border-b border-pulse-border px-4 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <MessageSquare className="w-4 h-4 text-pulse-accent" />
-              <span className="font-bold text-sm text-white">Chat trong cuộc họp</span>
+              <span className="font-bold text-sm text-white">Trò chuyện trong cuộc họp</span>
             </div>
             <button
               onClick={() => setIsMeetingChatOpen(false)}
@@ -308,7 +327,7 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({ participant }) => {
           : 'border-pulse-border/60 hover:border-pulse-border'
       }`}
     >
-      {/* Video Stream or Avatar */}
+      {/* Luồng Video hoặc Ảnh đại diện */}
       {hasVideo ? (
         <video
           ref={videoRef}
@@ -343,13 +362,13 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({ participant }) => {
         </div>
       )}
 
-      {/* Participant Name Badge */}
+      {/* Nhãn tên người tham gia */}
       <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-semibold text-white flex items-center space-x-2 border border-white/10">
         <span className="truncate max-w-[150px]">{participant.name}</span>
         {participant.isLocal && <span className="text-emerald-400 text-[10px]">(Bạn)</span>}
       </div>
 
-      {/* Status Badges */}
+      {/* Nhãn trạng thái Mic / Màn hình */}
       <div className="absolute top-3 right-3 flex items-center space-x-1.5">
         {participant.isMuted && (
           <div className="p-1.5 bg-rose-500/90 text-white rounded-lg backdrop-blur-sm shadow-md">

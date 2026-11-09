@@ -343,13 +343,23 @@ export const ChannelSidebar: React.FC = () => {
                             className="flex items-center justify-between text-xs text-pulse-text py-1 px-2 rounded-md bg-pulse-bg/50"
                           >
                             <div className="flex items-center space-x-2 truncate">
-                              <div
-                                className={`w-5 h-5 rounded-full bg-pulse-accent flex items-center justify-center text-[10px] font-bold text-white ${
-                                  p.isSpeaking ? 'ring-2 ring-emerald-400' : ''
-                                }`}
-                              >
-                                {p.name?.[0]?.toUpperCase() || 'U'}
-                              </div>
+                              {p.avatarUrl ? (
+                                <img
+                                  src={p.avatarUrl}
+                                  alt={p.name}
+                                  className={`w-5 h-5 rounded-full object-cover shrink-0 ${
+                                    p.isSpeaking ? 'ring-2 ring-emerald-400' : ''
+                                  }`}
+                                />
+                              ) : (
+                                <div
+                                  className={`w-5 h-5 rounded-full bg-pulse-accent flex items-center justify-center text-[10px] font-bold text-white shrink-0 ${
+                                    p.isSpeaking ? 'ring-2 ring-emerald-400' : ''
+                                  }`}
+                                >
+                                  {p.name?.[0]?.toUpperCase() || 'U'}
+                                </div>
+                              )}
                               <span className="truncate text-[11px]">{p.name}</span>
                             </div>
                             <div className="flex items-center space-x-1 text-pulse-muted">
