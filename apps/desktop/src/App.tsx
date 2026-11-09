@@ -7,8 +7,8 @@ import { ChannelSidebar } from './components/layout/ChannelSidebar';
 import { MemberList } from './components/layout/MemberList';
 import { VirtualizedMessageList } from './components/chat/VirtualizedMessageList';
 import { MessageInput } from './components/chat/MessageInput';
-import { VoiceRoomOverlay } from './components/voice/VoiceRoomOverlay';
-import { Hash, Sparkles } from 'lucide-react';
+import { GroupMeetingStage } from './components/voice/GroupMeetingStage';
+import { Hash, Sparkles, Volume2 } from 'lucide-react';
 import type { Message } from './types';
 
 export const App: React.FC = () => {
@@ -210,7 +210,11 @@ export const App: React.FC = () => {
         {/* Top Channel Header */}
         <header className="h-14 border-b border-pulse-border px-4 flex items-center justify-between shrink-0 bg-pulse-bg">
           <div className="flex items-center space-x-2">
-            <Hash className="w-5 h-5 text-pulse-muted" />
+            {activeChannel?.type === 2 ? (
+              <Volume2 className="w-5 h-5 text-emerald-400" />
+            ) : (
+              <Hash className="w-5 h-5 text-pulse-muted" />
+            )}
             <h1 className="font-bold text-white text-base">
               {activeChannel ? activeChannel.name : 'Select a channel'}
             </h1>
@@ -225,11 +229,10 @@ export const App: React.FC = () => {
           </div>
         </header>
 
-        {/* LiveKit Voice Overlay */}
-        <VoiceRoomOverlay />
-
-        {/* Chat Feed */}
-        {activeChannel ? (
+        {/* Main View: Group Meeting Stage (Voice/Video) OR Virtualized Chat Feed (Text) */}
+        {activeChannel?.type === 2 ? (
+          <GroupMeetingStage channel={activeChannel} />
+        ) : activeChannel ? (
           <div className="flex-1 flex flex-col min-h-0">
             <VirtualizedMessageList
               messages={messages}

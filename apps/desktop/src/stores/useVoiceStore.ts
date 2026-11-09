@@ -7,11 +7,13 @@ interface VoiceState {
   activeVoiceChannel: Channel | null;
   isConnected: boolean;
   isMuted: boolean;
+  isCameraOn: boolean;
   isScreenSharing: boolean;
   participants: VoiceParticipant[];
   joinVoiceRoom: (channel: Channel) => Promise<void>;
   leaveVoiceRoom: () => Promise<void>;
   toggleMute: () => Promise<void>;
+  toggleCamera: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
 }
 
@@ -19,6 +21,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   activeVoiceChannel: null,
   isConnected: false,
   isMuted: false,
+  isCameraOn: false,
   isScreenSharing: false,
   participants: [],
 
@@ -64,6 +67,11 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   toggleMute: async () => {
     const isMuted = await liveKitService.toggleMute();
     set({ isMuted });
+  },
+
+  toggleCamera: async () => {
+    const isCameraOn = await liveKitService.toggleCamera();
+    set({ isCameraOn });
   },
 
   toggleScreenShare: async () => {

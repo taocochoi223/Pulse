@@ -16,6 +16,13 @@ public class ServerController : ApiControllerBase
         return CreatedAtAction(nameof(GetServerById), new { id = result.Id }, result);
     }
 
+    [HttpPost("join/{inviteCode}")]
+    public async Task<ActionResult<ServerDto>> JoinServer(string inviteCode)
+    {
+        var result = await Mediator.Send(new JoinServerCommand(inviteCode));
+        return Ok(result);
+    }
+
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ServerDto>>> GetUserServers()
     {

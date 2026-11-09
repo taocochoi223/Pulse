@@ -3,7 +3,7 @@ import { useServerStore } from '../../stores/useServerStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useVoiceStore } from '../../stores/useVoiceStore';
 import { VoiceFooter } from './VoiceFooter';
-import { Hash, Volume2, Plus, LogOut } from 'lucide-react';
+import { Hash, Volume2, Plus, LogOut, UserPlus, Check } from 'lucide-react';
 import type { Channel } from '../../types';
 
 export const ChannelSidebar: React.FC = () => {
@@ -14,6 +14,7 @@ export const ChannelSidebar: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [channelName, setChannelName] = useState('');
   const [channelType, setChannelType] = useState<1 | 2>(1);
+  const [copiedInvite, setCopiedInvite] = useState(false);
 
   if (!activeServer) {
     return (
@@ -35,10 +36,17 @@ export const ChannelSidebar: React.FC = () => {
   };
 
   const handleChannelClick = (channel: Channel) => {
-    if (channel.type === 1) {
-      setActiveChannel(channel);
-    } else if (channel.type === 2) {
+    setActiveChannel(channel);
+    if (channel.type === 2) {
       joinVoiceRoom(channel);
+    }
+  };
+
+  const copyInviteCode = () => {
+    if (activeServer?.inviteCode) {
+      navigator.clipboard.writeText(activeServer.inviteCode);
+      setCopiedInvite(true);
+      setTimeout(() => setCopiedInvite(false), 2000);
     }
   };
 
@@ -47,7 +55,24 @@ export const ChannelSidebar: React.FC = () => {
       {/* Server Header */}
       <div>
         <div className="h-14 border-b border-pulse-border flex items-center justify-between px-4 font-bold text-white shadow-sm">
-          <span className="truncate">{activeServer.name}</span>
+          <span className="truncate max-w-[120px]">{activeServer.name}</span>
+          <button
+            onClick={copyInviteCode}
+            title={`Copy Invite Code: ${activeServer.inviteCode}`}
+            className="text-xs bg-pulse-card hover:bg-pulse-accent text-pulse-muted hover:text-white px-2 py-1 rounded-md transition flex items-center space-x-1 border border-pulse-border/50"
+          >
+            {copiedInvite ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-emerald-400 font-semibold">Copied</span>
+              </>
+            ) : (
+              <>
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Invite</span>
+              </>
+            )}
+          </button>
         </div>
 
         {/* Channels List */}
@@ -88,10 +113,10 @@ export const ChannelSidebar: React.FC = () => {
             </div>
           </div>
 
-          {/* Voice Channels Section */}
+          {/* Voice Rooms (Group Meeting) Section */}
           <div>
             <div className="flex items-center justify-between px-2 text-xs font-semibold text-pulse-muted uppercase tracking-wider mb-1">
-              <span>Voice Rooms</span>
+              <span>Voice & Meeting Rooms</span>
               <button
                 onClick={() => {
                   setChannelType(2);
@@ -105,19 +130,27 @@ export const ChannelSidebar: React.FC = () => {
             </div>
             <div className="space-y-0.5">
               {voiceChannels.map((channel) => {
-                const isVoiceActive = activeVoiceChannel?.id === channel.id;
+                const isSelected = activeChannel?.id === channel.id;
+                const isVoiceConnected = activeVoiceChannel?.id === channel.id;
+
                 return (
                   <button
                     key={channel.id}
                     onClick={() => handleChannelClick(channel)}
-                    className={`w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg text-sm font-medium transition ${
-                      isVoiceActive
-                        ? 'bg-emerald-500/15 text-emerald-400 font-semibold'
+                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-sm font-medium transition ${
+                      isSelected
+                        ? 'bg-pulse-accent/20 text-pulse-accent border border-pulse-accent/30 font-semibold'
                         : 'text-pulse-muted hover:bg-pulse-hover/50 hover:text-pulse-text'
                     }`}
                   >
-                    <Volume2 className="w-4 h-4 text-pulse-muted" />
-                    <span className="truncate">{channel.name}</span>
+                    <div className="flex items-center space-x-2 truncate">
+                      <Volume2 className={`w-4 h-4 ${isVoiceConnected ? 'text-emerald-400' : 'text-pulse-muted'}`} />
+                      <span className="truncate">{channel.name}</span>
+                    </div>
+
+                    {isVoiceConnected && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    )}
                   </button>
                 );
               })}
@@ -160,19 +193,19 @@ export const ChannelSidebar: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-pulse-card border border-pulse-border rounded-xl p-6 w-96 shadow-2xl">
             <h3 className="text-xl font-bold mb-2 text-white">
-              Create {channelType === 1 ? 'Text' : 'Voice'} Channel
+              Create {channelType === 1 ? 'Text' : 'Voice/Meeting'} Room
             </h3>
             <form onSubmit={handleCreateChannel}>
               <div className="mb-4">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-2">
-                  Channel Name
+                  Room Name
                 </label>
                 <input
                   type="text"
                   required
                   value={channelName}
                   onChange={(e) => setChannelName(e.target.value)}
-                  placeholder="e.g. backend-dev"
+                  placeholder={channelType === 1 ? 'e.g. backend-dev' : 'e.g. Daily Standup'}
                   className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent"
                 />
               </div>

@@ -13,6 +13,7 @@ const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_WS_URL || 'ws://localhost:7880'
 class LiveKitService {
   private room: Room | null = null;
   private isMuted: boolean = false;
+  private isCameraOn: boolean = false;
   private isScreenSharing: boolean = false;
 
   public async joinRoom(
@@ -37,7 +38,7 @@ class LiveKitService {
 
     await this.room.connect(LIVEKIT_URL, token);
 
-    // Publish local microphone by default
+    // Auto-publish local microphone
     try {
       const audioTrack = await createLocalAudioTrack({
         echoCancellation: true,
@@ -58,6 +59,7 @@ class LiveKitService {
       this.room = null;
     }
     this.isMuted = false;
+    this.isCameraOn = false;
     this.isScreenSharing = false;
   }
 
@@ -66,6 +68,18 @@ class LiveKitService {
     this.isMuted = !this.isMuted;
     await this.room.localParticipant.setMicrophoneEnabled(!this.isMuted);
     return this.isMuted;
+  }
+
+  public async toggleCamera(): Promise<boolean> {
+    if (!this.room) return false;
+    this.isCameraOn = !this.isCameraOn;
+    try {
+      await this.room.localParticipant.setCameraEnabled(this.isCameraOn);
+    } catch (err) {
+      console.error('[LiveKit] Failed to toggle camera:', err);
+      this.isCameraOn = false;
+    }
+    return this.isCameraOn;
   }
 
   public async toggleScreenShare(): Promise<boolean> {
@@ -104,6 +118,25 @@ class LiveKitService {
       .on(RoomEvent.LocalTrackUnpublished, update);
   }
 
+  public attachParticipantVideo(identity: string, videoElement: HTMLVideoElement): void {
+    if (!this.room) return;
+
+    if (identity === this.room.localParticipant.identity) {
+      const pub = Array.from(this.room.localParticipant.videoTrackPublications.values())[0];
+      if (pub && pub.track) {
+        pub.track.attach(videoElement);
+      }
+    } else {
+      const remote = this.room.remoteParticipants.get(identity);
+      if (remote) {
+        const pub = Array.from(remote.videoTrackPublications.values())[0];
+        if (pub && pub.track) {
+          pub.track.attach(videoElement);
+        }
+      }
+    }
+  }
+
   private notifyParticipants(
     callback: (participants: VoiceParticipant[]) => void
   ): void {
@@ -116,22 +149,32 @@ class LiveKitService {
 
     // Local participant
     const local = this.room.localParticipant;
+    const localVideoTrack = Array.from(local.videoTrackPublications.values())[0]?.track?.mediaStreamTrack;
+
     participants.push({
       identity: local.identity,
       name: local.name || 'You',
       isSpeaking: local.isSpeaking,
       isMuted: !local.isMicrophoneEnabled,
+      isCameraOn: local.isCameraEnabled,
       isScreenSharing: local.isScreenShareEnabled,
+      isLocal: true,
+      videoTrack: localVideoTrack,
     });
 
     // Remote participants
     this.room.remoteParticipants.forEach((remote: RemoteParticipant) => {
+      const remoteVideoTrack = Array.from(remote.videoTrackPublications.values())[0]?.track?.mediaStreamTrack;
+
       participants.push({
         identity: remote.identity,
         name: remote.name || remote.identity,
         isSpeaking: remote.isSpeaking,
         isMuted: !remote.isMicrophoneEnabled,
+        isCameraOn: remote.isCameraEnabled,
         isScreenSharing: remote.isScreenShareEnabled,
+        isLocal: false,
+        videoTrack: remoteVideoTrack,
       });
     });
 

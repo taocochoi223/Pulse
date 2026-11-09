@@ -89,7 +89,9 @@ export interface VoiceParticipant {
   name: string;
   isSpeaking: boolean;
   isMuted: boolean;
+  isCameraOn: boolean;
   isScreenSharing: boolean;
+  isLocal?: boolean;
   audioTrack?: MediaStreamTrack;
   videoTrack?: MediaStreamTrack;
 }
