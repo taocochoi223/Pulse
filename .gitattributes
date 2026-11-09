@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.cs text diff=csharp
+*.sln text merge=union
+*.csproj text
+*.json text
+*.yaml text
+*.yml text
+*.md text
