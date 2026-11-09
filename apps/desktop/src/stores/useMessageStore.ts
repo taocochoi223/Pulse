@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Message, ChannelMessagesResponse } from '../types';
+import type { Message, ChannelMessagesResponse, AttachmentInput } from '../types';
 import { apiClient } from '../services/api';
 import { db } from '../db';
 
@@ -9,11 +9,23 @@ interface MessageState {
   hasMore: boolean;
   isLoading: boolean;
   isLoadingMore: boolean;
+  replyingTo: Message | null;
   typingUsers: { [userId: string]: string }; // userId -> username
   fetchMessages: (channelId: string) => Promise<void>;
   fetchMoreMessages: (channelId: string) => Promise<void>;
-  sendMessage: (channelId: string, content: string, replyToMessageId?: string) => Promise<void>;
+  sendMessage: (
+    channelId: string,
+    content: string,
+    replyToMessageId?: string,
+    attachments?: AttachmentInput[]
+  ) => Promise<void>;
+  editMessage: (messageId: string, content: string) => Promise<void>;
+  deleteMessage: (messageId: string) => Promise<void>;
+  togglePinMessage: (messageId: string) => Promise<void>;
+  setReplyingTo: (message: Message | null) => void;
   addMessage: (message: Message) => void;
+  updateMessage: (message: Message) => void;
+  removeMessage: (messageId: string) => void;
   setTypingUser: (userId: string, username: string) => void;
   clearTypingUser: (userId: string) => void;
 }
@@ -24,19 +36,24 @@ export const useMessageStore = create<MessageState>((set, get) => ({
   hasMore: true,
   isLoading: false,
   isLoadingMore: false,
+  replyingTo: null,
   typingUsers: {},
 
   fetchMessages: async (channelId: string) => {
-    set({ isLoading: true, messages: [] });
+    set({ isLoading: true, messages: [], replyingTo: null });
 
     // 1. Instant load from Dexie cache
-    const cached = await db.messages
-      .where('channelId')
-      .equals(channelId)
-      .sortBy('createdAt');
+    try {
+      const cached = await db.messages
+        .where('channelId')
+        .equals(channelId)
+        .sortBy('createdAt');
 
-    if (cached.length > 0) {
-      set({ messages: cached });
+      if (cached.length > 0) {
+        set({ messages: cached });
+      }
+    } catch {
+      // Ignore cache read error
     }
 
     // 2. Fetch fresh from API
@@ -50,12 +67,13 @@ export const useMessageStore = create<MessageState>((set, get) => ({
 
       set({
         messages: ordered,
-        cursor: data.nextCursor,
+        cursor: data.nextCursor ?? null,
         hasMore: data.hasMore,
         isLoading: false,
       });
 
-      // Update local IndexedDB cache
+      // Replace local IndexedDB cache for this channel
+      await db.messages.where('channelId').equals(channelId).delete();
       await db.messages.bulkPut(ordered);
     } catch (err) {
       console.error('Failed to fetch messages:', err);
@@ -77,7 +95,7 @@ export const useMessageStore = create<MessageState>((set, get) => ({
 
       set((state) => ({
         messages: [...olderMessages, ...state.messages],
-        cursor: data.nextCursor,
+        cursor: data.nextCursor ?? null,
         hasMore: data.hasMore,
         isLoadingMore: false,
       }));
@@ -89,19 +107,46 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     }
   },
 
-  sendMessage: async (channelId: string, content: string, replyToMessageId?: string) => {
+  sendMessage: async (
+    channelId: string,
+    content: string,
+    replyToMessageId?: string,
+    attachments?: AttachmentInput[]
+  ) => {
     const { data } = await apiClient.post<Message>('/message', {
       channelId,
       content,
-      replyToMessageId,
+      replyToMessageId: replyToMessageId || null,
+      attachments: attachments && attachments.length > 0 ? attachments : null,
     });
 
+    set({ replyingTo: null });
     get().addMessage(data);
+  },
+
+  editMessage: async (messageId: string, content: string) => {
+    const { data } = await apiClient.put<Message>(`/message/${messageId}`, {
+      content,
+    });
+    get().updateMessage(data);
+  },
+
+  deleteMessage: async (messageId: string) => {
+    await apiClient.delete(`/message/${messageId}`);
+    get().removeMessage(messageId);
+  },
+
+  togglePinMessage: async (messageId: string) => {
+    const { data } = await apiClient.post<Message>(`/message/${messageId}/pin`);
+    get().updateMessage(data);
+  },
+
+  setReplyingTo: (message: Message | null) => {
+    set({ replyingTo: message });
   },
 
   addMessage: (message: Message) => {
     set((state) => {
-      // Prevent duplicates
       if (state.messages.some((m) => m.id === message.id)) {
         return state;
       }
@@ -109,6 +154,20 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     });
 
     db.messages.put(message).catch(console.error);
+  },
+
+  updateMessage: (message: Message) => {
+    set((state) => ({
+      messages: state.messages.map((m) => (m.id === message.id ? message : m)),
+    }));
+    db.messages.put(message).catch(console.error);
+  },
+
+  removeMessage: (messageId: string) => {
+    set((state) => ({
+      messages: state.messages.filter((m) => m.id !== messageId),
+    }));
+    db.messages.delete(messageId).catch(console.error);
   },
 
   setTypingUser: (userId: string, username: string) => {
@@ -129,4 +188,3 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     });
   },
 }));
-

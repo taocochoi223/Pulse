@@ -1,4 +1,4 @@
-export type UserStatus = 'Offline' | 'Online' | 'Idle' | 'DoNotDisturb';
+export type UserStatus = 'Offline' | 'Online' | 'Idle' | 'DoNotDisturb' | 0 | 1 | 2 | 3;
 
 export interface User {
   id: string;
@@ -6,7 +6,7 @@ export interface User {
   displayName: string;
   email: string;
   avatarUrl?: string | null;
-  status: UserStatus | number;
+  status: UserStatus;
   customStatus?: string | null;
 }
 
@@ -29,6 +29,19 @@ export interface Channel {
   createdAt: string;
 }
 
+export interface Member {
+  id: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  nickname?: string | null;
+  avatarUrl?: string | null;
+  status: UserStatus;
+  customStatus?: string | null;
+  isOwner: boolean;
+  joinedAt: string;
+}
+
 export interface Server {
   id: string;
   name: string;
@@ -39,10 +52,20 @@ export interface Server {
   createdAt: string;
   memberCount: number;
   channels?: Channel[];
+  members?: Member[];
 }
 
 export interface Attachment {
   id: string;
+  fileName: string;
+  contentType: string;
+  fileSizeBytes: number;
+  fileUrl: string;
+  width?: number | null;
+  height?: number | null;
+}
+
+export interface AttachmentInput {
   fileName: string;
   contentType: string;
   fileSizeBytes: number;
@@ -73,26 +96,17 @@ export interface ChannelMessagesResponse {
   hasMore: boolean;
 }
 
-export interface Member {
-  id: string;
-  userId: string;
-  username: string;
-  displayName: string;
-  nickname?: string | null;
-  avatarUrl?: string | null;
-  joinedAt: string;
-  isOnline?: boolean;
-}
-
 export interface VoiceParticipant {
   identity: string;
+  connectionId?: string;
   name: string;
+  avatarUrl?: string | null;
   isSpeaking: boolean;
   isMuted: boolean;
+  isDeafened?: boolean;
   isCameraOn: boolean;
   isScreenSharing: boolean;
   isLocal?: boolean;
   audioTrack?: MediaStreamTrack;
   videoTrack?: MediaStreamTrack;
 }
-

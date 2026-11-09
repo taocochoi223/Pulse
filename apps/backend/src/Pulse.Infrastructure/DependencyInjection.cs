@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Pulse.Application.Common.Interfaces;
 using Pulse.Infrastructure.Authentication;
 using Pulse.Infrastructure.Persistence;
@@ -37,24 +36,28 @@ public static class DependencyInjection
 
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<PulseDbContext>());
 
-        // 2. Redis ConnectionMultiplexer
+        // 2. Hybrid Redis + In-Memory Presence Service (fast startup even when Redis is offline)
         var redisConn = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING")
             ?? configuration["REDIS_CONNECTION_STRING"]
-            ?? configuration.GetConnectionString("Redis")
-            ?? "localhost:6379,abortConnect=false";
+            ?? configuration.GetConnectionString("Redis");
 
-        try
+        if (!string.IsNullOrWhiteSpace(redisConn) && !redisConn.StartsWith("localhost:6379"))
         {
-            var multiplexer = ConnectionMultiplexer.Connect(redisConn);
-            services.AddSingleton<IConnectionMultiplexer>(multiplexer);
-            services.AddScoped<IRedisPresenceService, RedisPresenceService>();
+            try
+            {
+                var options = ConfigurationOptions.Parse(redisConn);
+                options.AbortOnConnectFail = false;
+                options.ConnectTimeout = 1000;
+                var multiplexer = ConnectionMultiplexer.Connect(options);
+                services.AddSingleton<IConnectionMultiplexer>(multiplexer);
+            }
+            catch
+            {
+                // Redis unavailable; RedisPresenceService will use In-Memory store
+            }
         }
-        catch
-        {
-            // Fallback in case Redis service is offline during local run
-            services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect("localhost:6379,abortConnect=false"));
-            services.AddScoped<IRedisPresenceService, RedisPresenceService>();
-        }
+
+        services.AddScoped<IRedisPresenceService, RedisPresenceService>();
 
         // 3. Auth & Security
         services.AddHttpContextAccessor();

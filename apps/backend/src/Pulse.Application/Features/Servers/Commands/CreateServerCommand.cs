@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Pulse.Application.Common.Exceptions;
 using Pulse.Application.Common.Interfaces;
 using Pulse.Application.Features.Channels.Dtos;
@@ -45,6 +46,9 @@ public class CreateServerCommandHandler : IRequestHandler<CreateServerCommand, S
     {
         var userId = _currentUserService.UserId
             ?? throw new UnauthorizedException("User must be logged in to create a server.");
+
+        var ownerUser = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
 
         var inviteCode = Guid.NewGuid().ToString("N")[..8];
 
@@ -108,6 +112,23 @@ public class CreateServerCommandHandler : IRequestHandler<CreateServerCommand, S
             new(generalVoice.Id, generalVoice.ServerId, generalVoice.Name, generalVoice.Topic, generalVoice.Type, generalVoice.Position, generalVoice.CreatedAt)
         };
 
+        var memberDtos = new List<MemberDto>();
+        if (ownerUser != null)
+        {
+            memberDtos.Add(new MemberDto(
+                ownerMembership.Id,
+                ownerUser.Id,
+                ownerUser.Username,
+                ownerUser.DisplayName,
+                ownerMembership.Nickname,
+                ownerUser.AvatarUrl,
+                UserStatus.Online,
+                ownerUser.CustomStatus,
+                true,
+                ownerMembership.JoinedAt
+            ));
+        }
+
         return new ServerDto(
             server.Id,
             server.Name,
@@ -117,8 +138,8 @@ public class CreateServerCommandHandler : IRequestHandler<CreateServerCommand, S
             server.OwnerId,
             server.CreatedAt,
             1,
-            channelDtos
+            channelDtos,
+            memberDtos
         );
     }
 }
-

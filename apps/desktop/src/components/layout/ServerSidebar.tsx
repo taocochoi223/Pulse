@@ -1,26 +1,64 @@
 import React, { useState } from 'react';
 import { useServerStore } from '../../stores/useServerStore';
-import { Plus, Compass } from 'lucide-react';
+import { Plus, Compass, LogIn, Sparkles, X } from 'lucide-react';
 
 export const ServerSidebar: React.FC = () => {
-  const { servers, activeServer, setActiveServer, createServer } = useServerStore();
+  const { servers, activeServer, setActiveServer, createServer, joinServer } = useServerStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<'create' | 'join'>('create');
   const [newServerName, setNewServerName] = useState('');
+  const [newServerDesc, setNewServerDesc] = useState('');
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExplorerOpen, setIsExplorerOpen] = useState(false);
 
   const handleCreateServer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newServerName.trim()) return;
-    await createServer(newServerName.trim());
-    setNewServerName('');
-    setIsModalOpen(false);
+    if (!newServerName.trim() || isSubmitting) return;
+    setErrorMsg(null);
+    setIsSubmitting(true);
+    try {
+      await createServer(newServerName.trim(), newServerDesc.trim() || undefined);
+      setNewServerName('');
+      setNewServerDesc('');
+      setIsModalOpen(false);
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.detail || 'Không thể tạo server.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleJoinServer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteCodeInput.trim() || isSubmitting) return;
+    setErrorMsg(null);
+    setIsSubmitting(true);
+    try {
+      await joinServer(inviteCodeInput.trim());
+      setInviteCodeInput('');
+      setIsModalOpen(false);
+      setIsExplorerOpen(false);
+    } catch (err: any) {
+      setErrorMsg(
+        err.response?.data?.detail || 'Mã mời không hợp lệ hoặc server không tồn tại.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <aside className="w-[72px] bg-pulse-bg border-r border-pulse-border flex flex-col items-center py-3 space-y-2 select-none z-20">
-      {/* Home / Direct messages icon */}
+      {/* Quick Explorer / Join Server Button */}
       <button
-        title="Direct Messages"
-        className="w-12 h-12 rounded-2xl bg-pulse-card hover:bg-pulse-accent hover:rounded-xl transition-all duration-200 flex items-center justify-center text-pulse-muted hover:text-white"
+        onClick={() => {
+          setErrorMsg(null);
+          setIsExplorerOpen(true);
+        }}
+        title="Khám phá & Chuyển nhanh Server"
+        className="w-12 h-12 rounded-2xl bg-pulse-card hover:bg-pulse-accent hover:rounded-xl transition-all duration-200 flex items-center justify-center text-pulse-muted hover:text-white shadow-sm"
       >
         <Compass className="w-6 h-6" />
       </button>
@@ -57,7 +95,11 @@ export const ServerSidebar: React.FC = () => {
                 }`}
               >
                 {server.iconUrl ? (
-                  <img src={server.iconUrl} alt={server.name} className="w-full h-full object-cover rounded-[inherit]" />
+                  <img
+                    src={server.iconUrl}
+                    alt={server.name}
+                    className="w-full h-full object-cover rounded-[inherit]"
+                  />
                 ) : (
                   <span>{initials}</span>
                 )}
@@ -66,51 +108,231 @@ export const ServerSidebar: React.FC = () => {
           );
         })}
 
-        {/* Add Server Button */}
+        {/* Add / Join Server Button */}
         <button
-          onClick={() => setIsModalOpen(true)}
-          title="Create a Server"
+          onClick={() => {
+            setErrorMsg(null);
+            setModalTab('create');
+            setIsModalOpen(true);
+          }}
+          title="Tạo hoặc Tham gia Server"
           className="w-12 h-12 rounded-2xl bg-pulse-card hover:bg-emerald-600 hover:rounded-xl transition-all duration-200 flex items-center justify-center text-emerald-400 hover:text-white group"
         >
           <Plus className="w-6 h-6 transition-transform group-hover:rotate-90 duration-200" />
         </button>
       </div>
 
-      {/* Create Server Modal */}
+      {/* Create / Join Server Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-pulse-card border border-pulse-border rounded-xl p-6 w-96 shadow-2xl">
-            <h3 className="text-xl font-bold mb-2 text-white">Create a Server</h3>
-            <p className="text-sm text-pulse-muted mb-4">
-              Your server is where you and your team chat and voice connect.
-            </p>
-            <form onSubmit={handleCreateServer}>
-              <div className="mb-4">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-2">
-                  Server Name
-                </label>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-pulse-card border border-pulse-border rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Không Gian Làm Việc (Server)</h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-pulse-muted hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-pulse-bg rounded-xl mb-5 border border-pulse-border">
+              <button
+                type="button"
+                onClick={() => {
+                  setModalTab('create');
+                  setErrorMsg(null);
+                }}
+                className={`py-2 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 ${
+                  modalTab === 'create'
+                    ? 'bg-pulse-accent text-white shadow'
+                    : 'text-pulse-muted hover:text-white'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Tạo Server Mới</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalTab('join');
+                  setErrorMsg(null);
+                }}
+                className={`py-2 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 ${
+                  modalTab === 'join'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'text-pulse-muted hover:text-white'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Tham Gia Mã Mời</span>
+              </button>
+            </div>
+
+            {errorMsg && (
+              <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-lg p-3 mb-4">
+                {errorMsg}
+              </div>
+            )}
+
+            {modalTab === 'create' ? (
+              <form onSubmit={handleCreateServer} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-1.5">
+                    Tên Server
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newServerName}
+                    onChange={(e) => setNewServerName(e.target.value)}
+                    placeholder="VD: Core Engineering, Quí Sửu Tộc..."
+                    className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-1.5">
+                    Mô tả (Tuỳ chọn)
+                  </label>
+                  <input
+                    type="text"
+                    value={newServerDesc}
+                    onChange={(e) => setNewServerDesc(e.target.value)}
+                    placeholder="Nơi trao đổi dự án & họp nhóm"
+                    className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 text-sm text-pulse-muted hover:text-white"
+                  >
+                    Huỷ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-5 py-2 text-sm bg-pulse-accent hover:bg-pulse-accentHover text-white font-semibold rounded-lg transition shadow-lg shadow-pulse-accent/25"
+                  >
+                    {isSubmitting ? 'Đang tạo...' : 'Tạo Server'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleJoinServer} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-1.5">
+                    Mã Mời (Invite Code)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={inviteCodeInput}
+                    onChange={(e) => setInviteCodeInput(e.target.value)}
+                    placeholder="VD: a1b2c3d4"
+                    className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-pulse-muted focus:outline-none focus:border-emerald-500"
+                  />
+                  <p className="text-[11px] text-pulse-muted mt-1.5">
+                    Nhập mã mời 8 ký tự do chủ Server gửi cho bạn (bấm nút Invite ở góc trên tên Server để lấy mã).
+                  </p>
+                </div>
+                <div className="flex justify-end space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 text-sm text-pulse-muted hover:text-white"
+                  >
+                    Huỷ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition shadow-lg shadow-emerald-600/25"
+                  >
+                    {isSubmitting ? 'Đang vào...' : 'Tham Gia Ngay'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Compass / Quick Explorer Modal */}
+      {isExplorerOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-pulse-card border border-pulse-border rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <Compass className="w-5 h-5 text-pulse-accent" />
+                <h3 className="text-lg font-bold text-white">Tổng Quan & Chuyển Nhanh Server</h3>
+              </div>
+              <button
+                onClick={() => setIsExplorerOpen(false)}
+                className="text-pulse-muted hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-64 overflow-y-auto pr-1 mb-5">
+              {servers.length === 0 ? (
+                <div className="text-center py-6 text-sm text-pulse-muted">
+                  Bạn chưa tham gia Server nào. Hãy tạo mới hoặc nhập mã mời bên dưới!
+                </div>
+              ) : (
+                servers.map((srv) => (
+                  <div
+                    key={srv.id}
+                    onClick={() => {
+                      setActiveServer(srv);
+                      setIsExplorerOpen(false);
+                    }}
+                    className="flex items-center justify-between p-3 rounded-xl bg-pulse-bg hover:bg-pulse-hover border border-pulse-border cursor-pointer transition"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-xl bg-pulse-accent flex items-center justify-center font-bold text-white">
+                        {srv.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold text-white">{srv.name}</div>
+                        <div className="text-xs text-pulse-muted">
+                          Mã mời: <span className="font-mono text-emerald-400">{srv.inviteCode}</span> •{' '}
+                          {srv.memberCount || 1} thành viên
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-xs px-2.5 py-1 rounded-lg bg-pulse-card text-pulse-accent font-semibold">
+                      Mở
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handleJoinServer} className="border-t border-pulse-border pt-4">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-2">
+                Tham gia nhanh bằng Mã Mời
+              </label>
+              {errorMsg && (
+                <div className="text-xs text-rose-400 mb-2">{errorMsg}</div>
+              )}
+              <div className="flex space-x-2">
                 <input
                   type="text"
-                  required
-                  value={newServerName}
-                  onChange={(e) => setNewServerName(e.target.value)}
-                  placeholder="e.g. Core Engineering"
-                  className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent"
+                  value={inviteCodeInput}
+                  onChange={(e) => setInviteCodeInput(e.target.value)}
+                  placeholder="Nhập mã mời (VD: a1b2c3d4)..."
+                  className="flex-1 bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-pulse-accent"
                 />
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm text-pulse-muted hover:text-white"
-                >
-                  Cancel
-                </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm bg-pulse-accent hover:bg-pulse-accentHover text-white font-medium rounded-lg transition"
+                  disabled={!inviteCodeInput.trim() || isSubmitting}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition"
                 >
-                  Create
+                  Tham Gia
                 </button>
               </div>
             </form>

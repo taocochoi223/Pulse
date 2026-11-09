@@ -1,7 +1,14 @@
 import { create } from 'zustand';
-import type { User, AuthResponse } from '../types';
+import type { User, AuthResponse, UserStatus } from '../types';
 import { apiClient } from '../services/api';
 import { signalRService } from '../services/signalr';
+
+interface UpdateProfilePayload {
+  displayName: string;
+  avatarUrl?: string | null;
+  status: UserStatus;
+  customStatus?: string | null;
+}
 
 interface AuthState {
   user: User | null;
@@ -11,6 +18,7 @@ interface AuthState {
   setAuth: (authData: AuthResponse) => void;
   login: (emailOrUsername: string, password: string) => Promise<void>;
   register: (username: string, displayName: string, email: string, password: string) => Promise<void>;
+  updateProfile: (payload: UpdateProfilePayload) => Promise<User>;
   logout: () => void;
   initAuth: () => Promise<void>;
 }
@@ -51,6 +59,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     useAuthStore.getState().setAuth(data);
   },
 
+  updateProfile: async (payload: UpdateProfilePayload) => {
+    const { data } = await apiClient.put<User>('/auth/profile', payload);
+    set({ user: data });
+    return data;
+  },
+
   logout: () => {
     localStorage.removeItem('pulse_access_token');
     localStorage.removeItem('pulse_refresh_token');
@@ -74,4 +88,3 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
-

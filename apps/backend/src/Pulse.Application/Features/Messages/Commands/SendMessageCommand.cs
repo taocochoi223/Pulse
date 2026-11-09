@@ -10,10 +10,20 @@ using Pulse.Domain.Enums;
 
 namespace Pulse.Application.Features.Messages.Commands;
 
+public record AttachmentInputDto(
+    string FileName,
+    string ContentType,
+    long FileSizeBytes,
+    string FileUrl,
+    int? Width = null,
+    int? Height = null
+);
+
 public record SendMessageCommand(
     Guid ChannelId,
     string Content,
-    Guid? ReplyToMessageId = null
+    Guid? ReplyToMessageId = null,
+    IReadOnlyList<AttachmentInputDto>? Attachments = null
 ) : IRequest<MessageDto>;
 
 public class SendMessageCommandValidator : AbstractValidator<SendMessageCommand>
@@ -21,8 +31,10 @@ public class SendMessageCommandValidator : AbstractValidator<SendMessageCommand>
     public SendMessageCommandValidator()
     {
         RuleFor(x => x.ChannelId).NotEmpty();
+        RuleFor(x => x)
+            .Must(x => !string.IsNullOrWhiteSpace(x.Content) || (x.Attachments != null && x.Attachments.Count > 0))
+            .WithMessage("Message must contain text or at least one attachment.");
         RuleFor(x => x.Content)
-            .NotEmpty().WithMessage("Message content cannot be empty.")
             .MaximumLength(4000).WithMessage("Message cannot exceed 4000 characters.");
     }
 }
@@ -66,12 +78,40 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
         {
             ChannelId = request.ChannelId,
             SenderId = userId,
-            Content = request.Content.Trim(),
+            Content = (request.Content ?? string.Empty).Trim(),
             Type = request.ReplyToMessageId.HasValue ? MessageType.Reply : MessageType.Default,
             ReplyToMessageId = request.ReplyToMessageId,
             IsPinned = false,
             IsEdited = false
         };
+
+        var attachmentDtos = new List<AttachmentDto>();
+        if (request.Attachments != null && request.Attachments.Count > 0)
+        {
+            foreach (var item in request.Attachments)
+            {
+                var attachment = new Attachment
+                {
+                    MessageId = message.Id,
+                    FileName = item.FileName,
+                    ContentType = item.ContentType,
+                    FileSizeBytes = item.FileSizeBytes,
+                    FileUrl = item.FileUrl,
+                    Width = item.Width,
+                    Height = item.Height
+                };
+                message.Attachments.Add(attachment);
+                attachmentDtos.Add(new AttachmentDto(
+                    attachment.Id,
+                    attachment.FileName,
+                    attachment.ContentType,
+                    attachment.FileSizeBytes,
+                    attachment.FileUrl,
+                    attachment.Width,
+                    attachment.Height
+                ));
+            }
+        }
 
         _context.Messages.Add(message);
         await _context.SaveChangesAsync(cancellationToken);
@@ -97,7 +137,7 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
             message.IsEdited,
             message.CreatedAt,
             message.UpdatedAt,
-            Array.Empty<AttachmentDto>()
+            attachmentDtos
         );
 
         // Broadcast to channel room in real-time
@@ -106,4 +146,3 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
         return messageDto;
     }
 }
-

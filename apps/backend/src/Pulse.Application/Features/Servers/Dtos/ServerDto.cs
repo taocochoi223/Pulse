@@ -1,4 +1,5 @@
 using Pulse.Application.Features.Channels.Dtos;
+using Pulse.Domain.Enums;
 
 namespace Pulse.Application.Features.Servers.Dtos;
 
@@ -9,6 +10,9 @@ public record MemberDto(
     string DisplayName,
     string? Nickname,
     string? AvatarUrl,
+    UserStatus Status,
+    string? CustomStatus,
+    bool IsOwner,
     DateTimeOffset JoinedAt
 );
 
@@ -21,6 +25,6 @@ public record ServerDto(
     Guid OwnerId,
     DateTimeOffset CreatedAt,
     int MemberCount,
-    IReadOnlyCollection<ChannelDto>? Channels = null
+    IReadOnlyCollection<ChannelDto>? Channels = null,
+    IReadOnlyCollection<MemberDto>? Members = null
 );
-

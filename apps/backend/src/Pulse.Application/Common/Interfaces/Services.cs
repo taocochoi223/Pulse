@@ -36,7 +36,8 @@ public interface ILiveKitTokenService
 public interface ISignalRNotifier
 {
     Task NotifyMessageCreatedAsync(Guid channelId, object messagePayload, CancellationToken cancellationToken = default);
+    Task NotifyMessageUpdatedAsync(Guid channelId, object messagePayload, CancellationToken cancellationToken = default);
+    Task NotifyMessageDeletedAsync(Guid channelId, Guid messageId, CancellationToken cancellationToken = default);
     Task NotifyUserTypingAsync(Guid channelId, Guid userId, string username, CancellationToken cancellationToken = default);
     Task NotifyPresenceChangedAsync(Guid userId, int status, CancellationToken cancellationToken = default);
 }
-

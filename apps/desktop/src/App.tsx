@@ -1,30 +1,34 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuthStore } from './stores/useAuthStore';
 import { useServerStore } from './stores/useServerStore';
 import { useMessageStore } from './stores/useMessageStore';
+import { useVoiceStore } from './stores/useVoiceStore';
 import { ServerSidebar } from './components/layout/ServerSidebar';
 import { ChannelSidebar } from './components/layout/ChannelSidebar';
 import { MemberList } from './components/layout/MemberList';
 import { VirtualizedMessageList } from './components/chat/VirtualizedMessageList';
 import { MessageInput } from './components/chat/MessageInput';
 import { GroupMeetingStage } from './components/voice/GroupMeetingStage';
-import { Hash, Sparkles, Volume2 } from 'lucide-react';
-import type { Message } from './types';
+import { Hash, Sparkles, Volume2, Search, Pin, Users, X } from 'lucide-react';
+import type { Message, VoiceParticipant } from './types';
 
 export const App: React.FC = () => {
   const { isAuthenticated, initAuth, login, register } = useAuthStore();
-  const { activeChannel, activeServer, fetchServers } = useServerStore();
+  const { activeChannel, activeServer, fetchServers, updateMemberPresence } = useServerStore();
   const {
     messages,
     fetchMessages,
     fetchMoreMessages,
     sendMessage,
     addMessage,
+    updateMessage,
+    removeMessage,
     typingUsers,
     setTypingUser,
     isLoadingMore,
     hasMore,
   } = useMessageStore();
+  const { setChannelParticipants } = useVoiceStore();
 
   // Auth Form State
   const [isRegisterMode, setIsRegisterMode] = useState(false);
@@ -33,6 +37,11 @@ export const App: React.FC = () => {
   const [authUsername, setAuthUsername] = useState('');
   const [authDisplayName, setAuthDisplayName] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // Header UI State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showPinnedPopover, setShowPinnedPopover] = useState(false);
+  const [showMemberList, setShowMemberList] = useState(true);
 
   useEffect(() => {
     initAuth();
@@ -47,6 +56,8 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (activeChannel && activeChannel.type === 1) {
       fetchMessages(activeChannel.id);
+      setSearchQuery('');
+      setShowPinnedPopover(false);
     }
   }, [activeChannel, fetchMessages]);
 
@@ -59,6 +70,20 @@ export const App: React.FC = () => {
       }
     };
 
+    const handleMessageUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<Message>;
+      if (customEvent.detail && customEvent.detail.channelId === activeChannel?.id) {
+        updateMessage(customEvent.detail);
+      }
+    };
+
+    const handleMessageDeleted = (e: Event) => {
+      const customEvent = e as CustomEvent<{ channelId: string; messageId: string }>;
+      if (customEvent.detail && customEvent.detail.channelId === activeChannel?.id) {
+        removeMessage(customEvent.detail.messageId);
+      }
+    };
+
     const handleUserTyping = (e: Event) => {
       const customEvent = e as CustomEvent<{ channelId: string; userId: string; username: string }>;
       if (customEvent.detail && customEvent.detail.channelId === activeChannel?.id) {
@@ -66,14 +91,57 @@ export const App: React.FC = () => {
       }
     };
 
+    const handlePresenceChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<{ userId: string; status: number }>;
+      if (customEvent.detail) {
+        updateMemberPresence(customEvent.detail.userId, customEvent.detail.status as any);
+      }
+    };
+
+    const handleVoiceParticipantsUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ channelId: string; participants: VoiceParticipant[] }>;
+      if (customEvent.detail) {
+        setChannelParticipants(customEvent.detail.channelId, customEvent.detail.participants || []);
+      }
+    };
+
     window.addEventListener('pulse_message_received', handleMessageReceived);
+    window.addEventListener('pulse_message_updated', handleMessageUpdated);
+    window.addEventListener('pulse_message_deleted', handleMessageDeleted);
     window.addEventListener('pulse_user_typing', handleUserTyping);
+    window.addEventListener('pulse_presence_changed', handlePresenceChanged);
+    window.addEventListener('pulse_voice_participants_updated', handleVoiceParticipantsUpdated);
 
     return () => {
       window.removeEventListener('pulse_message_received', handleMessageReceived);
+      window.removeEventListener('pulse_message_updated', handleMessageUpdated);
+      window.removeEventListener('pulse_message_deleted', handleMessageDeleted);
       window.removeEventListener('pulse_user_typing', handleUserTyping);
+      window.removeEventListener('pulse_presence_changed', handlePresenceChanged);
+      window.removeEventListener('pulse_voice_participants_updated', handleVoiceParticipantsUpdated);
     };
-  }, [activeChannel, addMessage, setTypingUser]);
+  }, [
+    activeChannel,
+    addMessage,
+    updateMessage,
+    removeMessage,
+    setTypingUser,
+    updateMemberPresence,
+    setChannelParticipants,
+  ]);
+
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery.trim()) return messages;
+    const q = searchQuery.toLowerCase();
+    return messages.filter(
+      (m) =>
+        m.content.toLowerCase().includes(q) ||
+        m.sender.displayName.toLowerCase().includes(q) ||
+        m.sender.username.toLowerCase().includes(q)
+    );
+  }, [messages, searchQuery]);
+
+  const pinnedMessages = useMemo(() => messages.filter((m) => m.isPinned), [messages]);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +153,9 @@ export const App: React.FC = () => {
         await login(authEmail, authPassword);
       }
     } catch (err: any) {
-      setAuthError(err.response?.data?.detail || 'Authentication failed. Please check your credentials.');
+      setAuthError(
+        err.response?.data?.detail || 'Xác thực thất bại. Vui lòng kiểm tra lại thông tin.'
+      );
     }
   };
 
@@ -102,10 +172,10 @@ export const App: React.FC = () => {
           </div>
 
           <h2 className="text-lg font-bold text-white text-center mb-1">
-            {isRegisterMode ? 'Create an Account' : 'Welcome Back'}
+            {isRegisterMode ? 'Tạo Tài Khoản Mới' : 'Chào Mừng Trở Lại'}
           </h2>
           <p className="text-xs text-pulse-muted text-center mb-6">
-            High-performance, ultra-lightweight team communication.
+            Nền tảng giao tiếp & họp nhóm tốc độ cao, siêu nhẹ.
           </p>
 
           {authError && (
@@ -132,7 +202,7 @@ export const App: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                    Display Name
+                    Tên hiển thị (Display Name)
                   </label>
                   <input
                     type="text"
@@ -148,7 +218,7 @@ export const App: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                {isRegisterMode ? 'Email' : 'Email or Username'}
+                {isRegisterMode ? 'Email' : 'Email hoặc Username'}
               </label>
               <input
                 type={isRegisterMode ? 'email' : 'text'}
@@ -162,7 +232,7 @@ export const App: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                Password
+                Mật khẩu
               </label>
               <input
                 type="password"
@@ -178,12 +248,12 @@ export const App: React.FC = () => {
               type="submit"
               className="w-full py-2.5 bg-pulse-accent hover:bg-pulse-accentHover text-white font-semibold rounded-lg transition shadow-lg shadow-pulse-accent/25"
             >
-              {isRegisterMode ? 'Register' : 'Sign In'}
+              {isRegisterMode ? 'Đăng Ký' : 'Đăng Nhập'}
             </button>
           </form>
 
           <div className="mt-6 text-center text-xs text-pulse-muted">
-            {isRegisterMode ? 'Already have an account?' : "Don't have an account?"}{' '}
+            {isRegisterMode ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}{' '}
             <button
               onClick={() => {
                 setIsRegisterMode(!isRegisterMode);
@@ -191,7 +261,7 @@ export const App: React.FC = () => {
               }}
               className="text-pulse-accent hover:underline font-medium ml-1"
             >
-              {isRegisterMode ? 'Sign In' : 'Register'}
+              {isRegisterMode ? 'Đăng Nhập' : 'Đăng Ký Ngay'}
             </button>
           </div>
         </div>
@@ -206,27 +276,122 @@ export const App: React.FC = () => {
       <ChannelSidebar />
 
       {/* Main Chat Workspace */}
-      <main className="flex-1 flex flex-col min-w-0 bg-pulse-card/20">
+      <main className="flex-1 flex flex-col min-w-0 bg-pulse-card/20 relative">
         {/* Top Channel Header */}
-        <header className="h-14 border-b border-pulse-border px-4 flex items-center justify-between shrink-0 bg-pulse-bg">
-          <div className="flex items-center space-x-2">
+        <header className="h-14 border-b border-pulse-border px-4 flex items-center justify-between shrink-0 bg-pulse-bg z-20">
+          <div className="flex items-center space-x-2 min-w-0">
             {activeChannel?.type === 2 ? (
-              <Volume2 className="w-5 h-5 text-emerald-400" />
+              <Volume2 className="w-5 h-5 text-emerald-400 shrink-0" />
             ) : (
-              <Hash className="w-5 h-5 text-pulse-muted" />
+              <Hash className="w-5 h-5 text-pulse-muted shrink-0" />
             )}
-            <h1 className="font-bold text-white text-base">
-              {activeChannel ? activeChannel.name : 'Select a channel'}
+            <h1 className="font-bold text-white text-base truncate">
+              {activeChannel ? activeChannel.name : 'Chọn một kênh'}
             </h1>
             {activeChannel?.topic && (
               <>
-                <span className="text-pulse-muted">|</span>
-                <span className="text-xs text-pulse-muted truncate max-w-md">
+                <span className="text-pulse-muted hidden sm:inline">|</span>
+                <span className="text-xs text-pulse-muted truncate max-w-md hidden sm:inline">
                   {activeChannel.topic}
                 </span>
               </>
             )}
           </div>
+
+          {/* Right Header Controls */}
+          {activeChannel && (
+            <div className="flex items-center space-x-2">
+              {activeChannel.type === 1 && (
+                <>
+                  {/* Search Box */}
+                  <div className="relative flex items-center">
+                    <Search className="w-3.5 h-3.5 text-pulse-muted absolute left-2.5 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Tìm tin nhắn..."
+                      className="bg-pulse-card border border-pulse-border rounded-lg pl-8 pr-6 py-1 text-xs text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent w-36 sm:w-48 transition-all"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2 text-pulse-muted hover:text-white"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Pinned Messages Button */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowPinnedPopover((prev) => !prev)}
+                      title="Tin nhắn đã ghim"
+                      className={`p-1.5 rounded-lg border transition flex items-center space-x-1 ${
+                        showPinnedPopover || pinnedMessages.length > 0
+                          ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                          : 'bg-pulse-card border-pulse-border text-pulse-muted hover:text-white'
+                      }`}
+                    >
+                      <Pin className="w-4 h-4" />
+                      {pinnedMessages.length > 0 && (
+                        <span className="text-[10px] font-bold">{pinnedMessages.length}</span>
+                      )}
+                    </button>
+
+                    {/* Pinned Messages Popover */}
+                    {showPinnedPopover && (
+                      <div className="absolute right-0 mt-2 w-80 bg-pulse-panel border border-pulse-border rounded-xl shadow-2xl p-3 z-40">
+                        <div className="flex items-center justify-between border-b border-pulse-border pb-2 mb-2">
+                          <span className="text-xs font-bold text-white flex items-center space-x-1.5">
+                            <Pin className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Tin nhắn đã ghim ({pinnedMessages.length})</span>
+                          </span>
+                          <button
+                            onClick={() => setShowPinnedPopover(false)}
+                            className="text-pulse-muted hover:text-white"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {pinnedMessages.length === 0 ? (
+                            <div className="text-xs text-pulse-muted text-center py-4">
+                              Chưa có tin nhắn nào được ghim trong kênh này.
+                            </div>
+                          ) : (
+                            pinnedMessages.map((pm) => (
+                              <div
+                                key={pm.id}
+                                className="p-2.5 rounded-lg bg-pulse-bg border border-pulse-border text-xs space-y-1"
+                              >
+                                <div className="font-bold text-white">{pm.sender.displayName}</div>
+                                <div className="text-pulse-text break-words">{pm.content}</div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Toggle Member Sidebar Button */}
+              <button
+                onClick={() => setShowMemberList((prev) => !prev)}
+                title="Ẩn/Hiện danh sách thành viên"
+                className={`p-1.5 rounded-lg border transition ${
+                  showMemberList
+                    ? 'bg-pulse-accent/20 border-pulse-accent/40 text-pulse-accent'
+                    : 'bg-pulse-card border-pulse-border text-pulse-muted hover:text-white'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </header>
 
         {/* Main View: Group Meeting Stage (Voice/Video) OR Virtualized Chat Feed (Text) */}
@@ -235,7 +400,8 @@ export const App: React.FC = () => {
         ) : activeChannel ? (
           <div className="flex-1 flex flex-col min-h-0">
             <VirtualizedMessageList
-              messages={messages}
+              messages={filteredMessages}
+              channelName={activeChannel.name}
               isLoadingMore={isLoadingMore}
               hasMore={hasMore}
               onLoadMore={() => fetchMoreMessages(activeChannel.id)}
@@ -244,20 +410,21 @@ export const App: React.FC = () => {
             <MessageInput
               channelName={activeChannel.name}
               channelId={activeChannel.id}
-              onSendMessage={(content) => sendMessage(activeChannel.id, content)}
+              onSendMessage={(content, replyId, attachments) =>
+                sendMessage(activeChannel.id, content, replyId, attachments)
+              }
               typingUsers={typingUsers}
             />
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center text-pulse-muted text-sm">
-            Please select a channel from the left sidebar to start chatting.
+            Hãy chọn một kênh ở thanh bên trái hoặc tạo Server mới để bắt đầu trò chuyện.
           </div>
         )}
       </main>
 
       {/* Member Sidebar */}
-      {activeServer && <MemberList />}
+      {activeServer && showMemberList && <MemberList />}
     </div>
   );
 };
-

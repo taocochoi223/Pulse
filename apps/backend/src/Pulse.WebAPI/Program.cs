@@ -124,10 +124,18 @@ builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
+// Ensure wwwroot/uploads exists for file attachments
+var webRoot = app.Environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+Directory.CreateDirectory(Path.Combine(webRoot, "uploads"));
+
 // Global Exception Handler
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseSerilogRequestLogging();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(webRoot)
+});
 app.UseRouting();
 
 app.UseCors("PulseCorsPolicy");

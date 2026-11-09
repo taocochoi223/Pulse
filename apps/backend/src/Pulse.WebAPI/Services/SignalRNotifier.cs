@@ -19,6 +19,18 @@ public class SignalRNotifier : ISignalRNotifier
         await _hubContext.Clients.Group(groupName).SendAsync("MessageReceived", messagePayload, cancellationToken);
     }
 
+    public async Task NotifyMessageUpdatedAsync(Guid channelId, object messagePayload, CancellationToken cancellationToken = default)
+    {
+        var groupName = ChatHub.GetChannelGroupName(channelId);
+        await _hubContext.Clients.Group(groupName).SendAsync("MessageUpdated", messagePayload, cancellationToken);
+    }
+
+    public async Task NotifyMessageDeletedAsync(Guid channelId, Guid messageId, CancellationToken cancellationToken = default)
+    {
+        var groupName = ChatHub.GetChannelGroupName(channelId);
+        await _hubContext.Clients.Group(groupName).SendAsync("MessageDeleted", new { ChannelId = channelId, MessageId = messageId }, cancellationToken);
+    }
+
     public async Task NotifyUserTypingAsync(Guid channelId, Guid userId, string username, CancellationToken cancellationToken = default)
     {
         var groupName = ChatHub.GetChannelGroupName(channelId);
@@ -30,4 +42,3 @@ public class SignalRNotifier : ISignalRNotifier
         await _hubContext.Clients.All.SendAsync("UserPresenceChanged", new { UserId = userId, Status = status }, cancellationToken);
     }
 }
-

@@ -1,10 +1,12 @@
 import React, { useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { MessageItem } from './MessageItem';
+import { Hash } from 'lucide-react';
 import type { Message } from '../../types';
 
 interface VirtualizedMessageListProps {
   messages: Message[];
+  channelName?: string;
   isLoadingMore: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
@@ -12,6 +14,7 @@ interface VirtualizedMessageListProps {
 
 export const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
   messages,
+  channelName,
   isLoadingMore,
   hasMore,
   onLoadMore,
@@ -21,8 +24,8 @@ export const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
   const rowVirtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 58,
-    overscan: 10,
+    estimateSize: () => 68,
+    overscan: 12,
   });
 
   // Handle infinite scroll up to load previous messages
@@ -41,21 +44,24 @@ export const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
 
     if (messages.length > prevMessagesLength.current) {
       const isAtBottom =
-        parentRef.current.scrollHeight - parentRef.current.scrollTop - parentRef.current.clientHeight < 200;
+        parentRef.current.scrollHeight - parentRef.current.scrollTop - parentRef.current.clientHeight < 280;
 
       if (isAtBottom || prevMessagesLength.current === 0) {
-        rowVirtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+        requestAnimationFrame(() => {
+          if (parentRef.current) {
+            parentRef.current.scrollTop = parentRef.current.scrollHeight;
+          }
+        });
       }
     }
     prevMessagesLength.current = messages.length;
-  }, [messages.length, rowVirtualizer]);
+  }, [messages.length]);
 
   return (
     <div
       ref={parentRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-2 py-4 space-y-1 select-text"
-      style={{ contain: 'strict' }}
+      className="flex-1 min-h-0 overflow-y-auto px-2 py-4 space-y-1 select-text"
     >
       {/* Top Loader */}
       {isLoadingMore && (
@@ -64,43 +70,57 @@ export const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
         </div>
       )}
 
-      {!hasMore && messages.length > 0 && (
-        <div className="text-center py-4 text-xs text-pulse-muted border-b border-pulse-border/40 mb-3">
-          This is the beginning of the chat history.
+      {/* Channel Welcome Header */}
+      {(!hasMore || messages.length === 0) && (
+        <div className="px-4 pt-4 pb-6 border-b border-pulse-border/40 mb-3">
+          <div className="w-12 h-12 rounded-2xl bg-pulse-card border border-pulse-border flex items-center justify-center text-pulse-accent mb-3">
+            <Hash className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-extrabold text-white">
+            Chào mừng đến với #{channelName || 'general'}!
+          </h2>
+          <p className="text-xs text-pulse-muted mt-1">
+            Đây là điểm bắt đầu của kênh #{channelName || 'general'}. Hãy gửi tin nhắn, đính kèm hình ảnh/tệp hoặc thả emoji bên dưới.
+          </p>
         </div>
       )}
 
       {/* Virtualized Container */}
-      <div
-        style={{
-          height: `${rowVirtualizer.getTotalSize()}px`,
-          width: '100%',
-          position: 'relative',
-        }}
-      >
-        {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-          const message = messages[virtualItem.index];
-          if (!message) return null;
+      {messages.length > 0 && (
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+            const message = messages[virtualItem.index];
+            if (!message) return null;
 
-          return (
-            <div
-              key={message.id || virtualItem.key}
-              ref={rowVirtualizer.measureElement}
-              data-index={virtualItem.index}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                transform: `translateY(${virtualItem.start}px)`,
-              }}
-            >
-              <MessageItem message={message} />
-            </div>
-          );
-        })}
-      </div>
+            const repliedMessage = message.replyToMessageId
+              ? messages.find((m) => m.id === message.replyToMessageId)
+              : undefined;
+
+            return (
+              <div
+                key={message.id || virtualItem.key}
+                ref={rowVirtualizer.measureElement}
+                data-index={virtualItem.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <MessageItem message={message} repliedMessage={repliedMessage} />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
-
