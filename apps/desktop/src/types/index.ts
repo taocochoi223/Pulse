@@ -93,3 +93,4 @@ export interface VoiceParticipant {
   audioTrack?: MediaStreamTrack;
   videoTrack?: MediaStreamTrack;
 }
+

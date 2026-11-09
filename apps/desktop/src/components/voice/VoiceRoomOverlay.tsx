@@ -67,3 +67,4 @@ export const VoiceRoomOverlay: React.FC = () => {
     </div>
   );
 };
+

@@ -61,3 +61,4 @@ public class RedisPresenceService : IRedisPresenceService
         await _db.StringSetAsync(typingKey, username, TimeSpan.FromSeconds(5));
     }
 }
+

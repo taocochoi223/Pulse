@@ -83,3 +83,4 @@ public class ChatHub : Hub
 
     public static string GetChannelGroupName(Guid channelId) => $"channel-{channelId}";
 }
+

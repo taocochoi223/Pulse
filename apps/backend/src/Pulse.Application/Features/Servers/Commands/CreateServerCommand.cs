@@ -121,3 +121,4 @@ public class CreateServerCommandHandler : IRequestHandler<CreateServerCommand, S
         );
     }
 }
+

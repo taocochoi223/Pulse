@@ -106,3 +106,4 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Mes
         return messageDto;
     }
 }
+

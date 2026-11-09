@@ -30,3 +30,4 @@ public class SignalRNotifier : ISignalRNotifier
         await _hubContext.Clients.All.SendAsync("UserPresenceChanged", new { UserId = userId, Status = status }, cancellationToken);
     }
 }
+

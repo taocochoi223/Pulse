@@ -17,3 +17,4 @@ export class PulseDatabase extends Dexie {
 }
 
 export const db = new PulseDatabase();
+

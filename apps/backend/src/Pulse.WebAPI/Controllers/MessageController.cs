@@ -26,3 +26,4 @@ public class MessageController : ApiControllerBase
         return Ok(result);
     }
 }
+

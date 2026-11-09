@@ -33,3 +33,4 @@ describe('useServerStore', () => {
     expect(useServerStore.getState().activeChannel).toEqual(mockChannel);
   });
 });
+

@@ -49,3 +49,4 @@ public class GetServerChannelsQueryHandler : IRequestHandler<GetServerChannelsQu
         return channels;
     }
 }
+

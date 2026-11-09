@@ -18,3 +18,4 @@ public record AuthResponseDto(
     DateTimeOffset RefreshTokenExpiresAt,
     UserDto User
 );
+

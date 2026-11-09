@@ -67,3 +67,4 @@ public class RegisterCommandHandlerTests
         await Assert.ThrowsAsync<ConflictException>(() => handler.Handle(command, CancellationToken.None));
     }
 }
+

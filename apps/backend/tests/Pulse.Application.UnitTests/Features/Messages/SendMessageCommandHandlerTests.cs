@@ -111,3 +111,4 @@ public class SendMessageCommandHandlerTests
         await Assert.ThrowsAsync<UnauthorizedException>(() => handler.Handle(command, CancellationToken.None));
     }
 }
+

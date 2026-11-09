@@ -61,3 +61,4 @@ public class PulseDbContext : DbContext, IApplicationDbContext
         return base.SaveChangesAsync(cancellationToken);
     }
 }
+

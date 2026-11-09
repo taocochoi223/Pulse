@@ -23,10 +23,17 @@ public static class DependencyInjection
             ?? configuration.GetConnectionString("PostgreSql")
             ?? "Host=localhost;Port=5432;Database=pulse_db;Username=pulse_admin;Password=pulse_secure_password_123!;";
 
-        var npgsqlConnectionString = ParsePostgresConnectionString(rawDbUrl);
-
-        services.AddDbContext<PulseDbContext>(options =>
-            options.UseNpgsql(npgsqlConnectionString, b => b.MigrationsAssembly(typeof(PulseDbContext).Assembly.FullName)));
+        if (rawDbUrl == "InMemory")
+        {
+            services.AddDbContext<PulseDbContext>(options =>
+                options.UseInMemoryDatabase("PulseIntegrationTestDb"));
+        }
+        else
+        {
+            var npgsqlConnectionString = ParsePostgresConnectionString(rawDbUrl);
+            services.AddDbContext<PulseDbContext>(options =>
+                options.UseNpgsql(npgsqlConnectionString, b => b.MigrationsAssembly(typeof(PulseDbContext).Assembly.FullName)));
+        }
 
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<PulseDbContext>());
 

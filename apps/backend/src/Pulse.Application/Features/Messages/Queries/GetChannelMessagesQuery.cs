@@ -102,3 +102,4 @@ public class GetChannelMessagesQueryHandler : IRequestHandler<GetChannelMessages
         return new ChannelMessagesResponse(messageDtos, nextCursor, hasMore);
     }
 }
+

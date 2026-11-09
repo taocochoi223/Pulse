@@ -32,3 +32,4 @@ public record ChannelMessagesResponse(
     string? NextCursor,
     bool HasMore
 );
+

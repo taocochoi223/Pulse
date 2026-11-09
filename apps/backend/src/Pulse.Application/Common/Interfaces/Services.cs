@@ -39,3 +39,4 @@ public interface ISignalRNotifier
     Task NotifyUserTypingAsync(Guid channelId, Guid userId, string username, CancellationToken cancellationToken = default);
     Task NotifyPresenceChangedAsync(Guid userId, int status, CancellationToken cancellationToken = default);
 }
+

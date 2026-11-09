@@ -140,3 +140,6 @@ app.MapHub<ChatHub>("/hubs/chat");
 app.MapHealthChecks("/health");
 
 app.Run();
+
+// Expose Program for WebApplicationFactory integration tests
+public partial class Program { }

@@ -68,3 +68,4 @@ export const VoiceFooter: React.FC = () => {
     </div>
   );
 };
+

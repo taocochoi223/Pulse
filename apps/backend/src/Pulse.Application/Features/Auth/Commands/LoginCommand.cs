@@ -82,3 +82,4 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResponseDto
         return new AuthResponseDto(accessToken, refreshToken.Token, refreshToken.ExpiresAt, userDto);
     }
 }
+

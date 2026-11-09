@@ -30,3 +30,4 @@ public class ServerController : ApiControllerBase
         return Ok(result);
     }
 }
+

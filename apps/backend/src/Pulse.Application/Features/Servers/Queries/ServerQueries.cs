@@ -97,3 +97,4 @@ public class GetServerDetailsQueryHandler : IRequestHandler<GetServerDetailsQuer
         );
     }
 }
+

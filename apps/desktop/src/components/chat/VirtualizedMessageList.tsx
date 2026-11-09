@@ -103,3 +103,4 @@ export const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
     </div>
   );
 };
+

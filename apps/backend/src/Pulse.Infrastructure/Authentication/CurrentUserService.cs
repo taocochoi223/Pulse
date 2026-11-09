@@ -28,3 +28,4 @@ public class CurrentUserService : ICurrentUserService
 
     public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
 }
+

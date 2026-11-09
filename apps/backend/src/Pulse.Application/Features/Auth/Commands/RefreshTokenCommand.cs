@@ -68,3 +68,4 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
         return new AuthResponseDto(newAccessToken, newRefreshToken.Token, newRefreshToken.ExpiresAt, userDto);
     }
 }
+

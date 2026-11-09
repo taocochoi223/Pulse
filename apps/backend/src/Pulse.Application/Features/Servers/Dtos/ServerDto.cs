@@ -23,3 +23,4 @@ public record ServerDto(
     int MemberCount,
     IReadOnlyCollection<ChannelDto>? Channels = null
 );
+

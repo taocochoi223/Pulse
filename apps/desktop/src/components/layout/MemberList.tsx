@@ -30,3 +30,4 @@ export const MemberList: React.FC = () => {
     </aside>
   );
 };
+

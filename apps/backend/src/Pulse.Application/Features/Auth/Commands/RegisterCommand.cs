@@ -109,3 +109,4 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
         return new AuthResponseDto(accessToken, refreshToken.Token, refreshToken.ExpiresAt, userDto);
     }
 }
+
