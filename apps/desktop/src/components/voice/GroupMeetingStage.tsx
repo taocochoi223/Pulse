@@ -9,6 +9,8 @@ import { AudioDeviceSelector } from './AudioDeviceSelector';
 import {
   Mic,
   MicOff,
+  Headphones,
+  HeadphoneOff,
   Video,
   VideoOff,
   Monitor,
@@ -41,6 +43,7 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
   const {
     isConnected,
     isMuted,
+    isDeafened,
     isCameraOn,
     isScreenSharing,
     participants,
@@ -48,6 +51,7 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
     joinVoiceRoom,
     leaveVoiceRoom,
     toggleMute,
+    toggleDeafen,
     toggleCamera,
     toggleScreenShare,
     activeVoiceChannel,
@@ -200,6 +204,19 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
             {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
 
+          {/* Bật/Tắt Loa / Tai nghe (Deafen) */}
+          <button
+            onClick={toggleDeafen}
+            title={isDeafened ? 'Bật Loa / Tai nghe' : 'Tắt Loa / Tai nghe (Deafen)'}
+            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all ${
+              isDeafened
+                ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/40'
+                : 'bg-pulse-hover text-pulse-muted hover:text-white hover:bg-pulse-card border border-pulse-border'
+            }`}
+          >
+            {isDeafened ? <HeadphoneOff className="w-5 h-5" /> : <Headphones className="w-5 h-5" />}
+          </button>
+
           {/* Bật/Tắt Camera */}
           <button
             onClick={toggleCamera}
@@ -301,12 +318,18 @@ interface ParticipantTileProps {
 const ParticipantTile: React.FC<ParticipantTileProps> = ({ participant }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const hasVideo = !!participant.videoTrack && (participant.isCameraOn || participant.isScreenSharing || !participant.isLocal);
+
   useEffect(() => {
-    if (videoRef.current && participant.videoTrack) {
+    const el = videoRef.current;
+    if (el && participant.videoTrack) {
       const stream = new MediaStream([participant.videoTrack]);
-      videoRef.current.srcObject = stream;
+      el.srcObject = stream;
+      el.play().catch(() => {});
+    } else if (el) {
+      el.srcObject = null;
     }
-  }, [participant.videoTrack]);
+  }, [participant.videoTrack, participant.isCameraOn, participant.isScreenSharing, hasVideo]);
 
   const initials = participant.name
     ? participant.name
@@ -316,8 +339,6 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({ participant }) => {
         .slice(0, 2)
         .toUpperCase()
     : 'U';
-
-  const hasVideo = !!participant.videoTrack;
 
   return (
     <div

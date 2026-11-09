@@ -2,16 +2,30 @@ import React, { useEffect, useState } from 'react';
 import { useVoiceStore } from '../../stores/useVoiceStore';
 import { useServerStore } from '../../stores/useServerStore';
 import { formatCallDuration } from '../voice/GroupMeetingStage';
-import { Mic, MicOff, Monitor, PhoneOff, Signal } from 'lucide-react';
+import {
+  Mic,
+  MicOff,
+  Headphones,
+  HeadphoneOff,
+  Video,
+  VideoOff,
+  Monitor,
+  PhoneOff,
+  Signal,
+} from 'lucide-react';
 
 export const VoiceFooter: React.FC = () => {
   const {
     activeVoiceChannel,
     isConnected,
     isMuted,
+    isDeafened,
+    isCameraOn,
     isScreenSharing,
     roomStartedAtMap,
     toggleMute,
+    toggleDeafen,
+    toggleCamera,
     toggleScreenShare,
     leaveVoiceRoom,
   } = useVoiceStore();
@@ -71,12 +85,12 @@ export const VoiceFooter: React.FC = () => {
         </button>
       </div>
 
-      {/* Điều khiển âm thanh & màn hình */}
-      <div className="flex items-center justify-between pt-1 border-t border-pulse-border/50">
+      {/* Điều khiển Micro, Loa (Deafen), Camera & Màn hình */}
+      <div className="grid grid-cols-4 gap-1 pt-1 border-t border-pulse-border/50">
         <button
           onClick={toggleMute}
           title={isMuted ? 'Bật Micro' : 'Tắt Micro'}
-          className={`flex-1 py-1.5 flex justify-center rounded-lg text-xs font-medium transition ${
+          className={`py-1.5 flex justify-center rounded-lg text-xs font-medium transition ${
             isMuted
               ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30'
               : 'hover:bg-pulse-hover text-pulse-text'
@@ -86,11 +100,35 @@ export const VoiceFooter: React.FC = () => {
         </button>
 
         <button
+          onClick={toggleDeafen}
+          title={isDeafened ? 'Bật Loa / Tai nghe' : 'Tắt Loa / Tai nghe (Deafen)'}
+          className={`py-1.5 flex justify-center rounded-lg text-xs font-medium transition ${
+            isDeafened
+              ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30'
+              : 'hover:bg-pulse-hover text-pulse-text'
+          }`}
+        >
+          {isDeafened ? <HeadphoneOff className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
+        </button>
+
+        <button
+          onClick={toggleCamera}
+          title={isCameraOn ? 'Tắt Camera' : 'Bật Camera'}
+          className={`py-1.5 flex justify-center rounded-lg text-xs font-medium transition ${
+            isCameraOn
+              ? 'bg-pulse-accent text-white'
+              : 'hover:bg-pulse-hover text-pulse-text'
+          }`}
+        >
+          {isCameraOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+        </button>
+
+        <button
           onClick={toggleScreenShare}
           title={isScreenSharing ? 'Dừng chia sẻ màn hình' : 'Chia sẻ màn hình'}
-          className={`flex-1 py-1.5 flex justify-center rounded-lg text-xs font-medium transition ${
+          className={`py-1.5 flex justify-center rounded-lg text-xs font-medium transition ${
             isScreenSharing
-              ? 'bg-pulse-accent text-white'
+              ? 'bg-indigo-600 text-white'
               : 'hover:bg-pulse-hover text-pulse-text'
           }`}
         >

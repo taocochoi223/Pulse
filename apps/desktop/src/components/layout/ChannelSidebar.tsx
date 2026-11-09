@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useServerStore } from '../../stores/useServerStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useVoiceStore } from '../../stores/useVoiceStore';
+import { discordBridge } from '../../services/discordBridge';
 import { VoiceFooter } from './VoiceFooter';
 import {
   Hash,
@@ -19,6 +20,7 @@ import {
   Link2,
   Copy,
   KeyRound,
+  Webhook,
 } from 'lucide-react';
 import type { Channel, UserStatus } from '../../types';
 
@@ -41,10 +43,12 @@ export const ChannelSidebar: React.FC = () => {
   const [channelTopic, setChannelTopic] = useState('');
   const [channelType, setChannelType] = useState<1 | 2>(1);
 
-  // Hộp thoại Mời bạn bè (Mã mời + Link tự động vào Server)
+  // Hộp thoại Mời bạn bè (Mã mời + Link tự động vào Server + Cầu nối Discord)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [discordWebhookInput, setDiscordWebhookInput] = useState('');
+  const [discordSaveStatus, setDiscordSaveStatus] = useState<string | null>(null);
 
   // Hộp thoại Chỉnh sửa Kênh
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
@@ -178,8 +182,12 @@ export const ChannelSidebar: React.FC = () => {
           </span>
           <div className="flex items-center space-x-1">
             <button
-              onClick={() => setIsInviteModalOpen(true)}
-              title="Mời bạn bè bằng Mã mời hoặc Link tự động vào Máy chủ"
+              onClick={() => {
+                setDiscordWebhookInput(discordBridge.getWebhookUrl(activeServer.id));
+                setDiscordSaveStatus(null);
+                setIsInviteModalOpen(true);
+              }}
+              title="Mời bạn bè bằng Mã mời, Link tự động hoặc Kết nối Cầu nối Discord"
               className="text-xs bg-pulse-accent/20 hover:bg-pulse-accent text-pulse-accent hover:text-white px-2.5 py-1 rounded-md transition flex items-center space-x-1 border border-pulse-accent/40 font-semibold"
             >
               <UserPlus className="w-3.5 h-3.5" />
@@ -522,6 +530,57 @@ export const ChannelSidebar: React.FC = () => {
                   )}
                 </button>
               </div>
+            </div>
+
+            {/* Cách 3: Cầu nối Pulse <-> Discord */}
+            <div className="p-3.5 rounded-xl bg-pulse-bg border border-indigo-500/40 space-y-2">
+              <div className="flex items-center space-x-1.5 text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                <Webhook className="w-4 h-4" />
+                <span>Cầu nối sang Discord (Bạn dùng Pulse nhẹ, bạn bè bên Discord vẫn thấy!)</span>
+              </div>
+              <p className="text-[11px] text-pulse-muted leading-relaxed">
+                Dán <b>Discord Webhook URL</b> (từ <i>Cài đặt kênh Discord → Tích hợp → Webhooks</i>). Khi bạn nhắn tin hoặc vào Phòng Họp trên Pulse, bên Discord sẽ thấy ngay tên, avatar vịt của bạn và nút bấm vào họp cùng!
+              </p>
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="url"
+                  value={discordWebhookInput}
+                  onChange={(e) => setDiscordWebhookInput(e.target.value)}
+                  placeholder="https://discord.com/api/webhooks/..."
+                  className="flex-1 bg-pulse-card border border-pulse-border rounded-lg px-3 py-2 text-xs text-white placeholder-pulse-muted focus:outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    discordBridge.setWebhookUrl(activeServer.id, discordWebhookInput);
+                    if (!discordWebhookInput.trim()) {
+                      setDiscordSaveStatus('Đã tắt Cầu nối Discord cho máy chủ này.');
+                      return;
+                    }
+                    setDiscordSaveStatus('Đang gửi thông báo kiểm tra sang Discord...');
+                    const ok = await discordBridge.sendTestPing({
+                      webhookUrl: discordWebhookInput,
+                      serverName: activeServer.name,
+                      displayName: user?.displayName || 'Trí',
+                      avatarUrl: user?.avatarUrl,
+                      inviteLink,
+                    });
+                    setDiscordSaveStatus(
+                      ok
+                        ? '✅ Đã lưu & gửi thông báo sang Discord thành công!'
+                        : '⚠️ Đã lưu URL (Hãy kiểm tra lại đúng link Discord Webhook nhé).'
+                    );
+                  }}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shrink-0 shadow-md shadow-indigo-600/20"
+                >
+                  Lưu & Thử
+                </button>
+              </div>
+              {discordSaveStatus && (
+                <div className="text-[11px] text-emerald-400 font-medium pt-0.5">
+                  {discordSaveStatus}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { Message, ChannelMessagesResponse, AttachmentInput } from '../types';
 import { apiClient } from '../services/api';
+import { discordBridge } from '../services/discordBridge';
+import { useServerStore } from './useServerStore';
+import { useAuthStore } from './useAuthStore';
 import { db } from '../db';
 
 interface MessageState {
@@ -122,6 +125,23 @@ export const useMessageStore = create<MessageState>((set, get) => ({
 
     set({ replyingTo: null });
     get().addMessage(data);
+
+    // Chuyển tiếp sang Discord nếu máy chủ đã cấu hình Cầu nối Discord
+    const activeServer = useServerStore.getState().activeServer;
+    const activeChannel = useServerStore.getState().activeChannel;
+    const user = useAuthStore.getState().user;
+    if (activeServer && discordBridge.hasWebhook(activeServer.id)) {
+      discordBridge
+        .relayChatMessage({
+          serverId: activeServer.id,
+          channelName: activeChannel?.name || 'general',
+          displayName: user?.displayName || data.sender.displayName || 'Thành viên',
+          avatarUrl: user?.avatarUrl || data.sender.avatarUrl,
+          content: data.content,
+          attachmentUrls: data.attachments?.map((a) => a.fileUrl),
+        })
+        .catch(() => {});
+    }
   },
 
   editMessage: async (messageId: string, content: string) => {

@@ -9,6 +9,7 @@ import { MemberList } from './components/layout/MemberList';
 import { VirtualizedMessageList } from './components/chat/VirtualizedMessageList';
 import { MessageInput } from './components/chat/MessageInput';
 import { GroupMeetingStage } from './components/voice/GroupMeetingStage';
+import { soundEffects } from './services/soundEffects';
 import { Hash, Sparkles, Volume2, Search, Pin, Users, X, Pencil, Check, Link2 } from 'lucide-react';
 import type { Message, VoiceParticipant } from './types';
 
@@ -121,8 +122,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handleMessageReceived = (e: Event) => {
       const customEvent = e as CustomEvent<Message>;
-      if (customEvent.detail && customEvent.detail.channelId === activeChannel?.id) {
-        addMessage(customEvent.detail);
+      if (customEvent.detail) {
+        const currentUserId = useAuthStore.getState().user?.id;
+        if (customEvent.detail.sender?.id && customEvent.detail.sender.id !== currentUserId) {
+          soundEffects.playMessagePing();
+        }
+        if (customEvent.detail.channelId === activeChannel?.id) {
+          addMessage(customEvent.detail);
+        }
       }
     };
 

@@ -1,12 +1,15 @@
 import { create } from 'zustand';
 import type { Channel, VoiceParticipant } from '../types';
 import { liveKitService } from '../services/livekit';
+import { discordBridge } from '../services/discordBridge';
 import { useAuthStore } from './useAuthStore';
+import { useServerStore } from './useServerStore';
 
 interface VoiceState {
   activeVoiceChannel: Channel | null;
   isConnected: boolean;
   isMuted: boolean;
+  isDeafened: boolean;
   isCameraOn: boolean;
   isScreenSharing: boolean;
   participants: VoiceParticipant[];
@@ -15,6 +18,7 @@ interface VoiceState {
   joinVoiceRoom: (channel: Channel) => Promise<void>;
   leaveVoiceRoom: () => Promise<void>;
   toggleMute: () => Promise<void>;
+  toggleDeafen: () => Promise<void>;
   toggleCamera: () => Promise<void>;
   toggleScreenShare: () => Promise<void>;
   setChannelParticipants: (
@@ -28,6 +32,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   activeVoiceChannel: null,
   isConnected: false,
   isMuted: false,
+  isDeafened: false,
   isCameraOn: false,
   isScreenSharing: false,
   participants: [],
@@ -42,6 +47,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
     }
 
     const user = useAuthStore.getState().user;
+    const activeServer = useServerStore.getState().activeServer;
     const displayName = user?.displayName || user?.username || 'Thành viên';
     const avatarUrl = user?.avatarUrl;
 
@@ -49,6 +55,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       activeVoiceChannel: channel,
       isConnected: true,
       isMuted: false,
+      isDeafened: false,
       isCameraOn: false,
       isScreenSharing: false,
       roomStartedAtMap: {
@@ -58,15 +65,34 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
       },
     }));
 
+    // Thông báo sang Discord (nếu đã bật Cầu nối Discord cho máy chủ này)
+    if (activeServer) {
+      const inviteLink =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/?invite=${activeServer.inviteCode}`
+          : undefined;
+      discordBridge
+        .notifyVoicePresence({
+          serverId: activeServer.id,
+          serverName: activeServer.name,
+          channelName: channel.name,
+          displayName,
+          avatarUrl,
+          action: 'join',
+          inviteLink,
+        })
+        .catch(() => {});
+    }
+
     try {
       await liveKitService.joinRoom(channel.id, displayName, avatarUrl, (participants) => {
         set((state) => {
           const existingStart = state.roomStartedAtMap[channel.id] || Date.now();
           return {
-            participants,
+            participants: [...participants],
             channelParticipantsMap: {
               ...state.channelParticipantsMap,
-              [channel.id]: participants,
+              [channel.id]: [...participants],
             },
             roomStartedAtMap: {
               ...state.roomStartedAtMap,
@@ -81,8 +107,26 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
   },
 
   leaveVoiceRoom: async () => {
-    const oldChannelId = get().activeVoiceChannel?.id;
+    const oldChannel = get().activeVoiceChannel;
+    const oldChannelId = oldChannel?.id;
+    const user = useAuthStore.getState().user;
+    const activeServer = useServerStore.getState().activeServer;
+
     await liveKitService.leaveRoom();
+
+    if (oldChannel && activeServer) {
+      discordBridge
+        .notifyVoicePresence({
+          serverId: activeServer.id,
+          serverName: activeServer.name,
+          channelName: oldChannel.name,
+          displayName: user?.displayName || user?.username || 'Thành viên',
+          avatarUrl: user?.avatarUrl,
+          action: 'leave',
+        })
+        .catch(() => {});
+    }
+
     set((state) => {
       const updatedMap = { ...state.channelParticipantsMap };
       const updatedStartMap = { ...state.roomStartedAtMap };
@@ -100,6 +144,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
         isConnected: false,
         participants: [],
         isMuted: false,
+        isDeafened: false,
         isCameraOn: false,
         isScreenSharing: false,
         channelParticipantsMap: updatedMap,
@@ -110,7 +155,15 @@ export const useVoiceStore = create<VoiceState>((set, get) => ({
 
   toggleMute: async () => {
     const isMuted = await liveKitService.toggleMute();
-    set({ isMuted });
+    set((state) => ({
+      isMuted,
+      isDeafened: !isMuted ? false : state.isDeafened,
+    }));
+  },
+
+  toggleDeafen: async () => {
+    const { isDeafened, isMuted } = await liveKitService.toggleDeafen();
+    set({ isDeafened, isMuted });
   },
 
   toggleCamera: async () => {

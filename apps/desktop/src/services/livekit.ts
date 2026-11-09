@@ -1,5 +1,6 @@
 import type { VoiceParticipant } from '../types';
 import { signalRService } from './signalr';
+import { soundEffects } from './soundEffects';
 
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
@@ -27,6 +28,8 @@ class LiveKitVoiceService {
   private speakingInterval: number | null = null;
 
   private isMuted = false;
+  private isDeafened = false;
+  private wasMutedBeforeDeafen = false;
   private isCameraOn = false;
   private isScreenSharing = false;
   private isSpeaking = false;
@@ -44,6 +47,7 @@ class LiveKitVoiceService {
     this.boundOnPeerJoined = (e: Event) => {
       const peer = (e as CustomEvent<VoiceParticipant>).detail;
       if (peer?.connectionId) {
+        soundEffects.playJoinRoom();
         this.initiatePeerConnection(peer.connectionId, peer.identity, true);
       }
     };
@@ -51,6 +55,7 @@ class LiveKitVoiceService {
     this.boundOnPeerLeft = (e: Event) => {
       const data = (e as CustomEvent<{ connectionId: string; identity: string }>).detail;
       if (data?.connectionId) {
+        soundEffects.playLeaveRoom();
         this.closePeerConnection(data.connectionId);
         this.emitParticipants();
       }
@@ -82,11 +87,15 @@ class LiveKitVoiceService {
     avatarUrl: string | null | undefined,
     onParticipantsUpdate: (participants: VoiceParticipant[]) => void
   ): Promise<void> {
-    await this.leaveRoom();
+    if (this.currentChannelId) {
+      await this.leaveRoom(true);
+    }
 
     this.currentChannelId = channelId;
     this.onParticipantsChangeCallback = onParticipantsUpdate;
     this.isMuted = false;
+    this.isDeafened = false;
+    this.wasMutedBeforeDeafen = false;
     this.isCameraOn = false;
     this.isScreenSharing = false;
     this.isSpeaking = false;
@@ -95,6 +104,9 @@ class LiveKitVoiceService {
     window.addEventListener('pulse_voice_peer_left', this.boundOnPeerLeft);
     window.addEventListener('pulse_webrtc_signal', this.boundOnWebRtcSignal);
     window.addEventListener('pulse_voice_participants_updated', this.boundOnParticipantsUpdated);
+
+    // Phát âm thanh chuẩn khi vào phòng họp
+    soundEffects.playJoinRoom();
 
     // 1. Acquire local microphone if available
     try {
@@ -127,13 +139,16 @@ class LiveKitVoiceService {
     this.emitParticipants();
   }
 
-  public async leaveRoom(): Promise<void> {
+  public async leaveRoom(silent = false): Promise<void> {
     window.removeEventListener('pulse_voice_peer_joined', this.boundOnPeerJoined);
     window.removeEventListener('pulse_voice_peer_left', this.boundOnPeerLeft);
     window.removeEventListener('pulse_webrtc_signal', this.boundOnWebRtcSignal);
     window.removeEventListener('pulse_voice_participants_updated', this.boundOnParticipantsUpdated);
 
     if (this.currentChannelId) {
+      if (!silent) {
+        soundEffects.playLeaveRoom();
+      }
       await signalRService.leaveVoiceChannel(this.currentChannelId);
       this.currentChannelId = null;
     }
@@ -159,6 +174,7 @@ class LiveKitVoiceService {
     this.localMicStream = null;
     this.localCameraStream = null;
     this.localScreenStream = null;
+    this.isDeafened = false;
     this.serverParticipants = [];
     this.onParticipantsChangeCallback = null;
   }
@@ -186,9 +202,58 @@ class LiveKitVoiceService {
       }
     }
 
+    // Nếu người dùng bật lại Mic khi đang tắt loa (Deafen), tự động bật lại loa
+    if (!this.isMuted && this.isDeafened) {
+      this.isDeafened = false;
+      this.applyDeafenToRemoteAudio(false);
+    }
+
+    if (this.isMuted) {
+      soundEffects.playMute();
+    } else {
+      soundEffects.playUnmute();
+    }
+
     await this.syncLocalStateToServer();
     this.emitParticipants();
     return this.isMuted;
+  }
+
+  public async toggleDeafen(): Promise<{ isDeafened: boolean; isMuted: boolean }> {
+    this.isDeafened = !this.isDeafened;
+    this.applyDeafenToRemoteAudio(this.isDeafened);
+
+    if (this.isDeafened) {
+      this.wasMutedBeforeDeafen = this.isMuted;
+      if (!this.isMuted) {
+        this.isMuted = true;
+        this.isSpeaking = false;
+        this.localMicStream?.getAudioTracks().forEach((t) => {
+          t.enabled = false;
+        });
+      }
+      soundEffects.playDeafen();
+    } else {
+      if (!this.wasMutedBeforeDeafen && this.localMicStream) {
+        this.isMuted = false;
+        this.localMicStream.getAudioTracks().forEach((t) => {
+          t.enabled = true;
+        });
+      }
+      soundEffects.playUndeafen();
+    }
+
+    await this.syncLocalStateToServer();
+    this.emitParticipants();
+    return { isDeafened: this.isDeafened, isMuted: this.isMuted };
+  }
+
+  private applyDeafenToRemoteAudio(deafened: boolean): void {
+    for (const session of this.peerSessions.values()) {
+      if (session.audioEl) {
+        session.audioEl.muted = deafened;
+      }
+    }
   }
 
   public async toggleCamera(): Promise<boolean> {
@@ -196,6 +261,7 @@ class LiveKitVoiceService {
       this.localCameraStream?.getTracks().forEach((t) => t.stop());
       this.localCameraStream = null;
       this.isCameraOn = false;
+      soundEffects.playStreamOff();
     } else {
       try {
         this.localCameraStream = await navigator.mediaDevices.getUserMedia({
@@ -203,6 +269,7 @@ class LiveKitVoiceService {
           audio: false,
         });
         this.isCameraOn = true;
+        soundEffects.playStreamOn();
       } catch (err) {
         console.error('[VoiceEngine] Failed to start camera:', err);
         this.isCameraOn = false;
@@ -220,6 +287,7 @@ class LiveKitVoiceService {
       this.localScreenStream?.getTracks().forEach((t) => t.stop());
       this.localScreenStream = null;
       this.isScreenSharing = false;
+      soundEffects.playStreamOff();
     } else {
       try {
         this.localScreenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -231,12 +299,14 @@ class LiveKitVoiceService {
           videoTrack.onended = async () => {
             this.isScreenSharing = false;
             this.localScreenStream = null;
+            soundEffects.playStreamOff();
             await this.replaceOutgoingTracks();
             await this.syncLocalStateToServer();
             this.emitParticipants();
           };
         }
         this.isScreenSharing = true;
+        soundEffects.playStreamOn();
       } catch (err) {
         console.warn('[VoiceEngine] Screen share cancelled or denied:', err);
         this.isScreenSharing = false;
@@ -351,6 +421,7 @@ class LiveKitVoiceService {
         const audio = new Audio();
         audio.srcObject = new MediaStream([track]);
         audio.autoplay = true;
+        audio.muted = this.isDeafened;
         audio.play().catch(() => {});
         session.audioEl = audio;
       } else if (track.kind === 'video') {
@@ -493,7 +564,7 @@ class LiveKitVoiceService {
     await signalRService.updateVoiceState(
       this.currentChannelId,
       this.isMuted,
-      false,
+      this.isDeafened,
       this.isCameraOn,
       this.isScreenSharing,
       this.isSpeaking
