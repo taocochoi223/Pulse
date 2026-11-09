@@ -1,0 +1,13 @@
+**/node_modules
+**/bin
+**/obj
+**/dist
+**/target
+**/.vite
+**/.env
+**/.env.*
+!**/.env.example
+.git
+apps/desktop
+apps/backend/src/Pulse.WebAPI/wwwroot/uploads
+

@@ -11,6 +11,7 @@ primary_region = "sin"
   JWT_ISSUER = "PulseAuthServer"
   JWT_AUDIENCE = "PulseClientApp"
   ALLOWED_ORIGINS = "*"
+  PORT_BACKEND = "8080"
 
 [http_service]
   internal_port = 8080
