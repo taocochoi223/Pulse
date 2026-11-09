@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuthStore } from './stores/useAuthStore';
-import { useServerStore } from './stores/useServerStore';
+import { useServerStore, extractInviteCode } from './stores/useServerStore';
 import { useMessageStore } from './stores/useMessageStore';
 import { useVoiceStore } from './stores/useVoiceStore';
 import { ServerSidebar } from './components/layout/ServerSidebar';
@@ -9,12 +9,19 @@ import { MemberList } from './components/layout/MemberList';
 import { VirtualizedMessageList } from './components/chat/VirtualizedMessageList';
 import { MessageInput } from './components/chat/MessageInput';
 import { GroupMeetingStage } from './components/voice/GroupMeetingStage';
-import { Hash, Sparkles, Volume2, Search, Pin, Users, X, Pencil, Check } from 'lucide-react';
+import { Hash, Sparkles, Volume2, Search, Pin, Users, X, Pencil, Check, Link2 } from 'lucide-react';
 import type { Message, VoiceParticipant } from './types';
 
 export const App: React.FC = () => {
   const { isAuthenticated, initAuth, login, register, resetPassword } = useAuthStore();
-  const { activeChannel, activeServer, fetchServers, updateChannel, updateMemberPresence } = useServerStore();
+  const {
+    activeChannel,
+    activeServer,
+    fetchServers,
+    joinServer,
+    updateChannel,
+    updateMemberPresence,
+  } = useServerStore();
   const {
     messages,
     fetchMessages,
@@ -30,7 +37,7 @@ export const App: React.FC = () => {
   } = useMessageStore();
   const { setChannelParticipants } = useVoiceStore();
 
-  // Auth Form State
+  // Trạng thái Đăng nhập / Đăng ký / Đặt lại mật khẩu
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [isResetPasswordMode, setIsResetPasswordMode] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
@@ -39,7 +46,27 @@ export const App: React.FC = () => {
   const [authDisplayName, setAuthDisplayName] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Header UI State
+  // Mã mời từ đường link (?invite=XXXX hoặc /invite/XXXX)
+  const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('invite');
+    if (fromQuery) {
+      const code = extractInviteCode(fromQuery);
+      localStorage.setItem('pulse_pending_invite', code);
+      return code;
+    }
+    const pathMatch = window.location.pathname.match(/\/invite\/([a-zA-Z0-9_-]+)/i);
+    if (pathMatch && pathMatch[1]) {
+      const code = pathMatch[1];
+      localStorage.setItem('pulse_pending_invite', code);
+      return code;
+    }
+    return localStorage.getItem('pulse_pending_invite');
+  });
+  const [inviteToast, setInviteToast] = useState<string | null>(null);
+
+  // Trạng thái Thanh tiêu đề
   const [searchQuery, setSearchQuery] = useState('');
   const [showPinnedPopover, setShowPinnedPopover] = useState(false);
   const [showMemberList, setShowMemberList] = useState(true);
@@ -51,11 +78,36 @@ export const App: React.FC = () => {
     initAuth();
   }, [initAuth]);
 
+  // Khi đã đăng nhập: tải danh sách Server VÀ tự động vào Server nếu người dùng bấm vào Link mời!
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchServers();
-    }
-  }, [isAuthenticated, fetchServers]);
+    if (!isAuthenticated) return;
+
+    const initWorkspace = async () => {
+      await fetchServers();
+
+      const codeToJoin = pendingInviteCode || localStorage.getItem('pulse_pending_invite');
+      if (codeToJoin) {
+        localStorage.removeItem('pulse_pending_invite');
+        setPendingInviteCode(null);
+        // Xoá ?invite=... trên thanh địa chỉ để gọn gàng
+        if (typeof window !== 'undefined' && window.history.replaceState) {
+          window.history.replaceState({}, document.title, '/');
+        }
+        try {
+          const joined = await joinServer(codeToJoin);
+          setInviteToast(`🎉 Đã tự động tham gia máy chủ "${joined.name}" thành công!`);
+          setTimeout(() => setInviteToast(null), 5000);
+        } catch (err: any) {
+          setInviteToast(
+            err.response?.data?.detail || `Không thể tham gia bằng mã mời "${codeToJoin}".`
+          );
+          setTimeout(() => setInviteToast(null), 5000);
+        }
+      }
+    };
+
+    initWorkspace();
+  }, [isAuthenticated, fetchServers, joinServer, pendingInviteCode]);
 
   useEffect(() => {
     if (activeChannel && activeChannel.type === 1) {
@@ -65,7 +117,7 @@ export const App: React.FC = () => {
     }
   }, [activeChannel, fetchMessages]);
 
-  // Global SignalR Event Listeners
+  // Lắng nghe sự kiện thời gian thực từ SignalR
   useEffect(() => {
     const handleMessageReceived = (e: Event) => {
       const customEvent = e as CustomEvent<Message>;
@@ -171,7 +223,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // 1. Unauthenticated View (Login / Register / Reset Password)
+  // 1. Màn hình Đăng nhập / Đăng ký / Đặt lại mật khẩu
   if (!isAuthenticated) {
     return (
       <div className="h-screen w-screen bg-pulse-bg flex items-center justify-center p-4">
@@ -183,6 +235,19 @@ export const App: React.FC = () => {
             <h1 className="text-2xl font-black text-white tracking-wide">PULSE</h1>
           </div>
 
+          {/* Thông báo nếu người dùng bấm vào Link mời */}
+          {pendingInviteCode && (
+            <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs rounded-xl p-3 mb-5 flex items-start space-x-2">
+              <Link2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+              <div>
+                <div className="font-bold">Bạn nhận được lời mời tham gia Máy chủ!</div>
+                <div className="text-[11px] opacity-90 mt-0.5">
+                  Mã mời: <span className="font-mono font-bold">{pendingInviteCode}</span> — Hãy đăng nhập hoặc đăng ký tài khoản để hệ thống tự động đưa bạn vào ngay.
+                </div>
+              </div>
+            </div>
+          )}
+
           <h2 className="text-lg font-bold text-white text-center mb-1">
             {isResetPasswordMode
               ? 'Đặt Lại Mật Khẩu Nhanh'
@@ -192,7 +257,7 @@ export const App: React.FC = () => {
           </h2>
           <p className="text-xs text-pulse-muted text-center mb-6">
             {isResetPasswordMode
-              ? 'Nhập Username (VD: taocochoi223) hoặc Email và mật khẩu mới'
+              ? 'Nhập Tên đăng nhập (VD: taocochoi223) hoặc Email và mật khẩu mới'
               : 'Nền tảng giao tiếp & họp nhóm tốc độ cao, siêu nhẹ.'}
           </p>
 
@@ -207,27 +272,27 @@ export const App: React.FC = () => {
               <>
                 <div>
                   <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                    Username
+                    Tên đăng nhập (Viết liền không dấu)
                   </label>
                   <input
                     type="text"
                     required
                     value={authUsername}
                     onChange={(e) => setAuthUsername(e.target.value)}
-                    placeholder="tridev"
+                    placeholder="VD: tridev"
                     className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-pulse-accent"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                    Tên hiển thị (Display Name)
+                    Tên hiển thị
                   </label>
                   <input
                     type="text"
                     required
                     value={authDisplayName}
                     onChange={(e) => setAuthDisplayName(e.target.value)}
-                    placeholder="Trí"
+                    placeholder="VD: Trí"
                     className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-pulse-accent"
                   />
                 </div>
@@ -237,8 +302,8 @@ export const App: React.FC = () => {
             <div>
               <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
                 {isRegisterMode && !isResetPasswordMode
-                  ? 'Email'
-                  : 'Email, Username hoặc Tên hiển thị'}
+                  ? 'Địa chỉ Email'
+                  : 'Email, Tên đăng nhập hoặc Tên hiển thị'}
               </label>
               <input
                 type={isRegisterMode && !isResetPasswordMode ? 'email' : 'text'}
@@ -289,7 +354,7 @@ export const App: React.FC = () => {
               {isResetPasswordMode
                 ? 'Đổi Mật Khẩu & Đăng Nhập Ngay'
                 : isRegisterMode
-                ? 'Đăng Ký'
+                ? 'Đăng Ký Tài Khoản'
                 : 'Đăng Nhập'}
             </button>
           </form>
@@ -325,15 +390,25 @@ export const App: React.FC = () => {
     );
   }
 
-  // 2. Main Authenticated Workspace
+  // 2. Giao diện Không gian làm việc chính
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-pulse-bg select-none">
       <ServerSidebar />
       <ChannelSidebar />
 
-      {/* Main Chat Workspace */}
+      {/* Khu vực Trò chuyện / Phòng họp chính */}
       <main className="flex-1 flex flex-col min-w-0 bg-pulse-card/20 relative">
-        {/* Top Channel Header */}
+        {/* Thông báo tự động vào Server qua Link mời */}
+        {inviteToast && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl flex items-center space-x-2">
+            <span>{inviteToast}</span>
+            <button onClick={() => setInviteToast(null)} className="hover:opacity-80">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Thanh tiêu đề Kênh */}
         <header className="h-14 border-b border-pulse-border px-4 flex items-center justify-between shrink-0 bg-pulse-bg z-20">
           <div className="flex items-center space-x-2 min-w-0">
             {activeChannel?.type === 2 ? (
@@ -417,12 +492,12 @@ export const App: React.FC = () => {
             )}
           </div>
 
-          {/* Right Header Controls */}
+          {/* Cụm công cụ góc trên bên phải */}
           {activeChannel && (
             <div className="flex items-center space-x-2">
               {activeChannel.type === 1 && (
                 <>
-                  {/* Search Box */}
+                  {/* Ô tìm kiếm tin nhắn */}
                   <div className="relative flex items-center">
                     <Search className="w-3.5 h-3.5 text-pulse-muted absolute left-2.5 pointer-events-none" />
                     <input
@@ -442,7 +517,7 @@ export const App: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Pinned Messages Button */}
+                  {/* Nút xem tin nhắn đã ghim */}
                   <div className="relative">
                     <button
                       onClick={() => setShowPinnedPopover((prev) => !prev)}
@@ -459,7 +534,6 @@ export const App: React.FC = () => {
                       )}
                     </button>
 
-                    {/* Pinned Messages Popover */}
                     {showPinnedPopover && (
                       <div className="absolute right-0 mt-2 w-80 bg-pulse-panel border border-pulse-border rounded-xl shadow-2xl p-3 z-40">
                         <div className="flex items-center justify-between border-b border-pulse-border pb-2 mb-2">
@@ -497,7 +571,7 @@ export const App: React.FC = () => {
                 </>
               )}
 
-              {/* Toggle Member Sidebar Button */}
+              {/* Nút Ẩn/Hiện danh sách thành viên */}
               <button
                 onClick={() => setShowMemberList((prev) => !prev)}
                 title="Ẩn/Hiện danh sách thành viên"
@@ -513,7 +587,7 @@ export const App: React.FC = () => {
           )}
         </header>
 
-        {/* Main View: Group Meeting Stage (Voice/Video) OR Virtualized Chat Feed (Text) */}
+        {/* Nội dung chính: Phòng Họp Nhóm HOẶC Kênh Trò Chuyện */}
         {activeChannel?.type === 2 ? (
           <GroupMeetingStage channel={activeChannel} />
         ) : activeChannel ? (
@@ -537,12 +611,12 @@ export const App: React.FC = () => {
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center text-pulse-muted text-sm">
-            Hãy chọn một kênh ở thanh bên trái hoặc tạo Server mới để bắt đầu trò chuyện.
+            Hãy chọn một kênh ở thanh bên trái hoặc tạo Máy chủ mới để bắt đầu trò chuyện.
           </div>
         )}
       </main>
 
-      {/* Member Sidebar */}
+      {/* Cột Thành viên bên phải */}
       {activeServer && showMemberList && <MemberList />}
     </div>
   );

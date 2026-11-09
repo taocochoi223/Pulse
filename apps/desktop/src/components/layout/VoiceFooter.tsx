@@ -23,7 +23,7 @@ export const VoiceFooter: React.FC = () => {
             <Signal className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-xs font-semibold text-emerald-400">Voice Connected</div>
+            <div className="text-xs font-semibold text-emerald-400">Đã kết nối phòng họp</div>
             <div className="text-xs text-pulse-muted truncate max-w-[130px]">
               {activeVoiceChannel.name}
             </div>
@@ -32,18 +32,18 @@ export const VoiceFooter: React.FC = () => {
 
         <button
           onClick={leaveVoiceRoom}
-          title="Disconnect Voice"
+          title="Rời phòng họp"
           className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 transition"
         >
           <PhoneOff className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Voice Controls */}
+      {/* Điều khiển âm thanh & màn hình */}
       <div className="flex items-center justify-between pt-1 border-t border-pulse-border/50">
         <button
           onClick={toggleMute}
-          title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
+          title={isMuted ? 'Bật Micro' : 'Tắt Micro'}
           className={`flex-1 py-1.5 flex justify-center rounded-lg text-xs font-medium transition ${
             isMuted
               ? 'bg-rose-500/20 text-rose-400 hover:bg-rose-500/30'
@@ -55,7 +55,7 @@ export const VoiceFooter: React.FC = () => {
 
         <button
           onClick={toggleScreenShare}
-          title={isScreenSharing ? 'Stop Screen Share' : 'Share Your Screen'}
+          title={isScreenSharing ? 'Dừng chia sẻ màn hình' : 'Chia sẻ màn hình'}
           className={`flex-1 py-1.5 flex justify-center rounded-lg text-xs font-medium transition ${
             isScreenSharing
               ? 'bg-pulse-accent text-white'
@@ -68,4 +68,3 @@ export const VoiceFooter: React.FC = () => {
     </div>
   );
 };
-

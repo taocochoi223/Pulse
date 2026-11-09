@@ -16,6 +16,9 @@ import {
   X,
   MicOff,
   Monitor,
+  Link2,
+  Copy,
+  KeyRound,
 } from 'lucide-react';
 import type { Channel, UserStatus } from '../../types';
 
@@ -37,15 +40,19 @@ export const ChannelSidebar: React.FC = () => {
   const [channelName, setChannelName] = useState('');
   const [channelTopic, setChannelTopic] = useState('');
   const [channelType, setChannelType] = useState<1 | 2>(1);
-  const [copiedInvite, setCopiedInvite] = useState(false);
 
-  // Edit Channel Modal State
+  // Hộp thoại Mời bạn bè (Mã mời + Link tự động vào Server)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Hộp thoại Chỉnh sửa Kênh
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [editChannelName, setEditChannelName] = useState('');
   const [editChannelTopic, setEditChannelTopic] = useState('');
   const [isUpdatingChannel, setIsUpdatingChannel] = useState(false);
 
-  // User Profile Settings Modal
+  // Hộp thoại Hồ sơ cá nhân
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [displayNameInput, setDisplayNameInput] = useState('');
   const [avatarUrlInput, setAvatarUrlInput] = useState('');
@@ -56,14 +63,19 @@ export const ChannelSidebar: React.FC = () => {
   if (!activeServer) {
     return (
       <div className="w-60 bg-pulse-panel border-r border-pulse-border p-4 flex flex-col items-center justify-center text-center text-sm text-pulse-muted">
-        <p>Chưa chọn Server nào.</p>
-        <p className="text-xs mt-1">Hãy bấm nút (+) ở thanh bên trái để tạo hoặc tham gia Server!</p>
+        <p>Chưa chọn Máy chủ nào.</p>
+        <p className="text-xs mt-1">Hãy bấm nút (+) ở thanh bên trái để tạo hoặc tham gia Máy chủ!</p>
       </div>
     );
   }
 
   const textChannels = activeServer.channels?.filter((c) => c.type === 1) || [];
   const voiceChannels = activeServer.channels?.filter((c) => c.type === 2) || [];
+
+  const inviteLink =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/?invite=${activeServer.inviteCode}`
+      : `http://localhost:1420/?invite=${activeServer.inviteCode}`;
 
   const handleCreateChannel = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,9 +120,15 @@ export const ChannelSidebar: React.FC = () => {
   const copyInviteCode = () => {
     if (activeServer?.inviteCode) {
       navigator.clipboard.writeText(activeServer.inviteCode);
-      setCopiedInvite(true);
-      setTimeout(() => setCopiedInvite(false), 2000);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
     }
+  };
+
+  const copyInviteLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const openProfileModal = () => {
@@ -152,38 +170,29 @@ export const ChannelSidebar: React.FC = () => {
 
   return (
     <aside className="w-60 bg-pulse-panel border-r border-pulse-border flex flex-col justify-between select-none shrink-0">
-      {/* Server Header */}
+      {/* Tiêu đề Máy chủ */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="h-14 border-b border-pulse-border flex items-center justify-between px-3 font-bold text-white shadow-sm shrink-0">
-          <span className="truncate max-w-[115px]" title={activeServer.name}>
+          <span className="truncate max-w-[110px]" title={activeServer.name}>
             {activeServer.name}
           </span>
           <div className="flex items-center space-x-1">
             <button
-              onClick={copyInviteCode}
-              title={`Copy Mã Mời: ${activeServer.inviteCode}`}
-              className="text-xs bg-pulse-card hover:bg-pulse-accent text-pulse-muted hover:text-white px-2 py-1 rounded-md transition flex items-center space-x-1 border border-pulse-border/50"
+              onClick={() => setIsInviteModalOpen(true)}
+              title="Mời bạn bè bằng Mã mời hoặc Link tự động vào Máy chủ"
+              className="text-xs bg-pulse-accent/20 hover:bg-pulse-accent text-pulse-accent hover:text-white px-2.5 py-1 rounded-md transition flex items-center space-x-1 border border-pulse-accent/40 font-semibold"
             >
-              {copiedInvite ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400 font-semibold">Đã chép</span>
-                </>
-              ) : (
-                <>
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Invite</span>
-                </>
-              )}
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Mời bạn</span>
             </button>
             <button
               onClick={async () => {
-                const actionText = isServerOwner ? 'xoá Server này' : 'rời khỏi Server này';
+                const actionText = isServerOwner ? 'xoá Máy chủ này' : 'rời khỏi Máy chủ này';
                 if (window.confirm(`Bạn có chắc muốn ${actionText} không?`)) {
                   await deleteOrLeaveServer(activeServer.id);
                 }
               }}
-              title={isServerOwner ? 'Xoá Server' : 'Rời Server'}
+              title={isServerOwner ? 'Xoá Máy chủ' : 'Rời Máy chủ'}
               className="p-1.5 rounded-md bg-pulse-card hover:bg-rose-500/20 text-pulse-muted hover:text-rose-400 transition"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -191,19 +200,19 @@ export const ChannelSidebar: React.FC = () => {
           </div>
         </div>
 
-        {/* Channels List */}
+        {/* Danh sách Kênh */}
         <div className="flex-1 p-3 space-y-5 overflow-y-auto">
-          {/* Text Channels Section */}
+          {/* Kênh Trò chuyện (Văn bản) */}
           <div>
             <div className="flex items-center justify-between px-2 text-xs font-semibold text-pulse-muted uppercase tracking-wider mb-1.5">
-              <span>Kênh Chat (Text)</span>
+              <span>Kênh Trò Chuyện</span>
               <button
                 onClick={() => {
                   setChannelType(1);
                   setIsModalOpen(true);
                 }}
                 className="hover:text-white p-0.5 rounded hover:bg-pulse-hover"
-                title="Tạo Kênh Chat"
+                title="Tạo Kênh Trò Chuyện Mới"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
@@ -252,17 +261,17 @@ export const ChannelSidebar: React.FC = () => {
             </div>
           </div>
 
-          {/* Voice Rooms (Group Meeting) Section */}
+          {/* Phòng Họp Nhóm (Âm thanh & Hình ảnh) */}
           <div>
             <div className="flex items-center justify-between px-2 text-xs font-semibold text-pulse-muted uppercase tracking-wider mb-1.5">
-              <span>Phòng Họp (Voice/Video)</span>
+              <span>Phòng Họp Nhóm</span>
               <button
                 onClick={() => {
                   setChannelType(2);
                   setIsModalOpen(true);
                 }}
                 className="hover:text-white p-0.5 rounded hover:bg-pulse-hover"
-                title="Tạo Phòng Họp Nhóm"
+                title="Tạo Phòng Họp Nhóm Mới"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
@@ -325,7 +334,7 @@ export const ChannelSidebar: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Active Participants inside this Voice Room */}
+                    {/* Danh sách thành viên đang trong phòng họp */}
                     {roomMembers.length > 0 && (
                       <div className="pl-6 pr-2 space-y-1 py-0.5">
                         {roomMembers.map((p) => (
@@ -361,11 +370,10 @@ export const ChannelSidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Footer Area */}
+      {/* Thanh trạng thái cá nhân dưới cùng */}
       <div className="shrink-0">
         <VoiceFooter />
 
-        {/* User Status Bar */}
         <div className="bg-pulse-bg border-t border-pulse-border p-2.5 flex items-center justify-between">
           <div
             onClick={openProfileModal}
@@ -413,12 +421,108 @@ export const ChannelSidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Create Channel Modal */}
+      {/* HỘP THOẠI MỜI BẠN BÈ (1. LINK TỰ ĐỘNG VÀO SERVER & 2. MÃ MỜI) */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 select-text">
+          <div className="bg-pulse-card border border-pulse-border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white">
+                  Mời Bạn Bè Vào "{activeServer.name}"
+                </h3>
+                <p className="text-xs text-pulse-muted mt-0.5">
+                  Chọn 1 trong 2 cách dưới đây để gửi cho thành viên trong nhóm:
+                </p>
+              </div>
+              <button
+                onClick={() => setIsInviteModalOpen(false)}
+                className="text-pulse-muted hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Cách 1: Đưa Link cho họ bấm vào là tự động vào thẳng Server */}
+            <div className="p-3.5 rounded-xl bg-pulse-bg border border-pulse-border space-y-2">
+              <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                <Link2 className="w-4 h-4" />
+                <span>Cách 1: Gửi Link Mời (Bấm vào tự động vào luôn)</span>
+              </div>
+              <p className="text-[11px] text-pulse-muted">
+                Gửi đường dẫn này cho bạn bè. Khi họ mở link, hệ thống sẽ tự động đưa họ vào thẳng máy chủ <b>{activeServer.name}</b>!
+              </p>
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="text"
+                  readOnly
+                  value={inviteLink}
+                  className="flex-1 bg-pulse-card border border-pulse-border rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={copyInviteLink}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition flex items-center space-x-1.5 shrink-0 shadow-md shadow-emerald-600/20"
+                >
+                  {copiedLink ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Đã chép Link</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Sao chép Link</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Cách 2: Đưa Mã Mời 8 ký tự */}
+            <div className="p-3.5 rounded-xl bg-pulse-bg border border-pulse-border space-y-2">
+              <div className="flex items-center space-x-1.5 text-xs font-bold text-pulse-accent uppercase tracking-wider">
+                <KeyRound className="w-4 h-4" />
+                <span>Cách 2: Gửi Mã Mời (Nhập trong ứng dụng)</span>
+              </div>
+              <p className="text-[11px] text-pulse-muted">
+                Hoặc gửi mã 8 ký tự này để họ nhập vào mục <b>(+) → Nhập Mã / Link Mời</b>:
+              </p>
+              <div className="flex items-center space-x-2 pt-1">
+                <input
+                  type="text"
+                  readOnly
+                  value={activeServer.inviteCode}
+                  className="flex-1 bg-pulse-card border border-pulse-border rounded-lg px-3 py-2 text-sm font-bold text-amber-300 font-mono tracking-widest text-center focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={copyInviteCode}
+                  className="px-3.5 py-2 bg-pulse-accent hover:bg-pulse-accentHover text-white text-xs font-bold rounded-lg transition flex items-center space-x-1.5 shrink-0 shadow-md shadow-pulse-accent/20"
+                >
+                  {copiedCode ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Đã chép Mã</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Sao chép Mã</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hộp thoại Tạo Kênh */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-pulse-card border border-pulse-border rounded-xl p-6 w-96 shadow-2xl">
             <h3 className="text-lg font-bold mb-3 text-white">
-              Tạo {channelType === 1 ? 'Kênh Chat (Text)' : 'Phòng Họp (Voice/Video)'}
+              Tạo {channelType === 1 ? 'Kênh Trò Chuyện' : 'Phòng Họp Nhóm'}
             </h3>
             <form onSubmit={handleCreateChannel} className="space-y-4">
               <div>
@@ -430,7 +534,7 @@ export const ChannelSidebar: React.FC = () => {
                   required
                   value={channelName}
                   onChange={(e) => setChannelName(e.target.value)}
-                  placeholder={channelType === 1 ? 'VD: backend-dev' : 'VD: Daily-Standup'}
+                  placeholder={channelType === 1 ? 'VD: thao-luan-chung' : 'VD: Phòng Họp Nhóm 1'}
                   className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent"
                 />
               </div>
@@ -466,13 +570,13 @@ export const ChannelSidebar: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Channel Modal */}
+      {/* Hộp thoại Chỉnh sửa Kênh */}
       {editingChannel && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-pulse-card border border-pulse-border rounded-2xl p-6 w-96 shadow-2xl">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-bold text-white">
-                Chỉnh Sửa {editingChannel.type === 1 ? 'Kênh Chat' : 'Phòng Họp'}
+                Chỉnh Sửa {editingChannel.type === 1 ? 'Kênh Trò Chuyện' : 'Phòng Họp'}
               </h3>
               <button
                 onClick={() => setEditingChannel(null)}
@@ -497,7 +601,7 @@ export const ChannelSidebar: React.FC = () => {
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-1.5">
-                  Chủ đề (Topic)
+                  Chủ đề
                 </label>
                 <input
                   type="text"
@@ -546,7 +650,7 @@ export const ChannelSidebar: React.FC = () => {
         </div>
       )}
 
-      {/* User Profile Settings Modal */}
+      {/* Hộp thoại Hồ sơ cá nhân */}
       {isProfileOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-pulse-card border border-pulse-border rounded-2xl p-6 w-full max-w-md shadow-2xl">
@@ -563,7 +667,7 @@ export const ChannelSidebar: React.FC = () => {
             <form onSubmit={handleSaveProfile} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                  Tên hiển thị (Display Name)
+                  Tên hiển thị
                 </label>
                 <input
                   type="text"
@@ -583,28 +687,28 @@ export const ChannelSidebar: React.FC = () => {
                   onChange={(e) => setStatusInput(Number(e.target.value))}
                   className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-pulse-accent"
                 >
-                  <option value={1}>🟢 Trực tuyến (Online)</option>
-                  <option value={2}>🌙 Tạm vắng (Idle)</option>
-                  <option value={3}>⛔ Không làm phiền (Do Not Disturb)</option>
+                  <option value={1}>🟢 Trực tuyến</option>
+                  <option value={2}>🌙 Tạm vắng</option>
+                  <option value={3}>⛔ Không làm phiền</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                  Dòng trạng thái tuỳ chỉnh (Custom Status)
+                  Dòng trạng thái tuỳ chỉnh
                 </label>
                 <input
                   type="text"
                   value={customStatusInput}
                   onChange={(e) => setCustomStatusInput(e.target.value)}
-                  placeholder="VD: Đang code tính năng mới 🚀"
+                  placeholder="VD: Đang làm việc tính năng mới 🚀"
                   className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-pulse-accent"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                  URL Ảnh đại diện (Tuỳ chọn)
+                  Đường dẫn Ảnh đại diện (Tuỳ chọn)
                 </label>
                 <input
                   type="url"

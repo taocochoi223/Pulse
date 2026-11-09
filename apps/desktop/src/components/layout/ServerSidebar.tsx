@@ -24,7 +24,7 @@ export const ServerSidebar: React.FC = () => {
       setNewServerDesc('');
       setIsModalOpen(false);
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.detail || 'Không thể tạo server.');
+      setErrorMsg(err.response?.data?.detail || 'Không thể tạo máy chủ.');
     } finally {
       setIsSubmitting(false);
     }
@@ -42,7 +42,7 @@ export const ServerSidebar: React.FC = () => {
       setIsExplorerOpen(false);
     } catch (err: any) {
       setErrorMsg(
-        err.response?.data?.detail || 'Mã mời không hợp lệ hoặc server không tồn tại.'
+        err.response?.data?.detail || 'Mã mời hoặc đường dẫn không hợp lệ, hoặc máy chủ không tồn tại.'
       );
     } finally {
       setIsSubmitting(false);
@@ -51,13 +51,13 @@ export const ServerSidebar: React.FC = () => {
 
   return (
     <aside className="w-[72px] bg-pulse-bg border-r border-pulse-border flex flex-col items-center py-3 space-y-2 select-none z-20">
-      {/* Quick Explorer / Join Server Button */}
+      {/* Nút Khám phá & Chuyển nhanh Máy chủ */}
       <button
         onClick={() => {
           setErrorMsg(null);
           setIsExplorerOpen(true);
         }}
-        title="Khám phá & Chuyển nhanh Server"
+        title="Khám phá & Chuyển nhanh Máy chủ"
         className="w-12 h-12 rounded-2xl bg-pulse-card hover:bg-pulse-accent hover:rounded-xl transition-all duration-200 flex items-center justify-center text-pulse-muted hover:text-white shadow-sm"
       >
         <Compass className="w-6 h-6" />
@@ -65,7 +65,7 @@ export const ServerSidebar: React.FC = () => {
 
       <div className="w-8 h-[2px] bg-pulse-border rounded" />
 
-      {/* Server list */}
+      {/* Danh sách Máy chủ */}
       <div className="flex-1 w-full flex flex-col items-center space-y-2 overflow-y-auto no-scrollbar">
         {servers.map((server) => {
           const isActive = activeServer?.id === server.id;
@@ -78,7 +78,7 @@ export const ServerSidebar: React.FC = () => {
 
           return (
             <div key={server.id} className="relative group flex items-center justify-center w-full">
-              {/* Active pill indicator */}
+              {/* Thanh đánh dấu đang chọn */}
               <div
                 className={`absolute left-0 w-1 bg-white rounded-r transition-all duration-200 ${
                   isActive ? 'h-10' : 'h-2 group-hover:h-5'
@@ -108,26 +108,26 @@ export const ServerSidebar: React.FC = () => {
           );
         })}
 
-        {/* Add / Join Server Button */}
+        {/* Nút Tạo hoặc Tham gia Máy chủ */}
         <button
           onClick={() => {
             setErrorMsg(null);
             setModalTab('create');
             setIsModalOpen(true);
           }}
-          title="Tạo hoặc Tham gia Server"
+          title="Tạo mới hoặc Tham gia Máy chủ"
           className="w-12 h-12 rounded-2xl bg-pulse-card hover:bg-emerald-600 hover:rounded-xl transition-all duration-200 flex items-center justify-center text-emerald-400 hover:text-white group"
         >
           <Plus className="w-6 h-6 transition-transform group-hover:rotate-90 duration-200" />
         </button>
       </div>
 
-      {/* Create / Join Server Modal */}
+      {/* Hộp thoại Tạo / Tham gia Máy chủ */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-pulse-card border border-pulse-border rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Không Gian Làm Việc (Server)</h3>
+              <h3 className="text-lg font-bold text-white">Không Gian Làm Việc Chung</h3>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-pulse-muted hover:text-white"
@@ -136,7 +136,7 @@ export const ServerSidebar: React.FC = () => {
               </button>
             </div>
 
-            {/* Tabs */}
+            {/* 2 Tab */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-pulse-bg rounded-xl mb-5 border border-pulse-border">
               <button
                 type="button"
@@ -151,7 +151,7 @@ export const ServerSidebar: React.FC = () => {
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Tạo Server Mới</span>
+                <span>Tạo Máy Chủ Mới</span>
               </button>
               <button
                 type="button"
@@ -166,7 +166,7 @@ export const ServerSidebar: React.FC = () => {
                 }`}
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>Tham Gia Mã Mời</span>
+                <span>Nhập Mã / Link Mời</span>
               </button>
             </div>
 
@@ -180,14 +180,14 @@ export const ServerSidebar: React.FC = () => {
               <form onSubmit={handleCreateServer} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-1.5">
-                    Tên Server
+                    Tên Máy Chủ
                   </label>
                   <input
                     type="text"
                     required
                     value={newServerName}
                     onChange={(e) => setNewServerName(e.target.value)}
-                    placeholder="VD: Core Engineering, Quí Sửu Tộc..."
+                    placeholder="VD: Quí Sửu Tộc, Nhóm Phát Triển..."
                     className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent"
                   />
                 </div>
@@ -216,7 +216,7 @@ export const ServerSidebar: React.FC = () => {
                     disabled={isSubmitting}
                     className="px-5 py-2 text-sm bg-pulse-accent hover:bg-pulse-accentHover text-white font-semibold rounded-lg transition shadow-lg shadow-pulse-accent/25"
                   >
-                    {isSubmitting ? 'Đang tạo...' : 'Tạo Server'}
+                    {isSubmitting ? 'Đang tạo...' : 'Tạo Máy Chủ'}
                   </button>
                 </div>
               </form>
@@ -224,18 +224,18 @@ export const ServerSidebar: React.FC = () => {
               <form onSubmit={handleJoinServer} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-1.5">
-                    Mã Mời (Invite Code)
+                    Mã Mời hoặc Đường Dẫn (Link) Mời
                   </label>
                   <input
                     type="text"
                     required
                     value={inviteCodeInput}
                     onChange={(e) => setInviteCodeInput(e.target.value)}
-                    placeholder="VD: a1b2c3d4"
+                    placeholder="VD: a1b2c3d4 hoặc http://localhost:1420/?invite=a1b2c3d4"
                     className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white font-mono placeholder-pulse-muted focus:outline-none focus:border-emerald-500"
                   />
                   <p className="text-[11px] text-pulse-muted mt-1.5">
-                    Nhập mã mời 8 ký tự do chủ Server gửi cho bạn (bấm nút Invite ở góc trên tên Server để lấy mã).
+                    Bạn có thể dán mã mời 8 ký tự hoặc dán nguyên đường link mời do chủ Máy chủ gửi.
                   </p>
                 </div>
                 <div className="flex justify-end space-x-3 pt-2">
@@ -251,7 +251,7 @@ export const ServerSidebar: React.FC = () => {
                     disabled={isSubmitting}
                     className="px-5 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition shadow-lg shadow-emerald-600/25"
                   >
-                    {isSubmitting ? 'Đang vào...' : 'Tham Gia Ngay'}
+                    {isSubmitting ? 'Đang vào...' : 'Vào Máy Chủ Ngay'}
                   </button>
                 </div>
               </form>
@@ -260,14 +260,14 @@ export const ServerSidebar: React.FC = () => {
         </div>
       )}
 
-      {/* Compass / Quick Explorer Modal */}
+      {/* Hộp thoại Tổng quan & Chuyển nhanh Máy chủ */}
       {isExplorerOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-pulse-card border border-pulse-border rounded-2xl p-6 w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <Compass className="w-5 h-5 text-pulse-accent" />
-                <h3 className="text-lg font-bold text-white">Tổng Quan & Chuyển Nhanh Server</h3>
+                <h3 className="text-lg font-bold text-white">Tổng Quan & Chuyển Nhanh Máy Chủ</h3>
               </div>
               <button
                 onClick={() => setIsExplorerOpen(false)}
@@ -280,7 +280,7 @@ export const ServerSidebar: React.FC = () => {
             <div className="space-y-3 max-h-64 overflow-y-auto pr-1 mb-5">
               {servers.length === 0 ? (
                 <div className="text-center py-6 text-sm text-pulse-muted">
-                  Bạn chưa tham gia Server nào. Hãy tạo mới hoặc nhập mã mời bên dưới!
+                  Bạn chưa tham gia Máy chủ nào. Hãy tạo mới hoặc nhập mã mời bên dưới!
                 </div>
               ) : (
                 servers.map((srv) => (
@@ -314,7 +314,7 @@ export const ServerSidebar: React.FC = () => {
 
             <form onSubmit={handleJoinServer} className="border-t border-pulse-border pt-4">
               <label className="block text-xs font-semibold uppercase tracking-wider text-pulse-muted mb-2">
-                Tham gia nhanh bằng Mã Mời
+                Tham gia nhanh bằng Mã Mời hoặc Link Mời
               </label>
               {errorMsg && (
                 <div className="text-xs text-rose-400 mb-2">{errorMsg}</div>
@@ -324,7 +324,7 @@ export const ServerSidebar: React.FC = () => {
                   type="text"
                   value={inviteCodeInput}
                   onChange={(e) => setInviteCodeInput(e.target.value)}
-                  placeholder="Nhập mã mời (VD: a1b2c3d4)..."
+                  placeholder="Dán mã mời hoặc link mời vào đây..."
                   className="flex-1 bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-pulse-accent"
                 />
                 <button

@@ -4,6 +4,32 @@ import { apiClient } from '../services/api';
 import { signalRService } from '../services/signalr';
 import { db } from '../db';
 
+export const extractInviteCode = (rawInput: string): string => {
+  const trimmed = rawInput.trim();
+  try {
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      const url = new URL(trimmed);
+      const fromQuery = url.searchParams.get('invite');
+      if (fromQuery) return fromQuery.trim();
+      const parts = url.pathname.split('/').filter(Boolean);
+      const inviteIdx = parts.findIndex((p) => p.toLowerCase() === 'invite');
+      if (inviteIdx !== -1 && parts[inviteIdx + 1]) {
+        return parts[inviteIdx + 1].trim();
+      }
+      if (parts.length > 0) {
+        return parts[parts.length - 1].trim();
+      }
+    }
+  } catch {
+    // Fallback to regex / plain string
+  }
+  const match = trimmed.match(/[?&]invite=([a-zA-Z0-9_-]+)/i);
+  if (match && match[1]) return match[1];
+  const pathMatch = trimmed.match(/\/invite\/([a-zA-Z0-9_-]+)/i);
+  if (pathMatch && pathMatch[1]) return pathMatch[1];
+  return trimmed;
+};
+
 interface ServerState {
   servers: Server[];
   activeServer: Server | null;
@@ -15,7 +41,7 @@ interface ServerState {
   fetchServers: () => Promise<void>;
   createServer: (name: string, description?: string) => Promise<Server>;
   updateServer: (serverId: string, name: string, description?: string) => Promise<Server>;
-  joinServer: (inviteCode: string) => Promise<Server>;
+  joinServer: (inviteCodeOrLink: string) => Promise<Server>;
   deleteOrLeaveServer: (serverId: string) => Promise<void>;
   createChannel: (name: string, type: 1 | 2, topic?: string) => Promise<Channel>;
   updateChannel: (channelId: string, name: string, topic?: string) => Promise<Channel>;
@@ -33,19 +59,16 @@ export const useServerStore = create<ServerState>((set, get) => ({
   fetchServers: async () => {
     set({ isLoading: true });
     try {
-      // 1. Read instant from Dexie IndexedDB cache
       const cachedServers = await db.servers.toArray();
       if (cachedServers.length > 0) {
         set({ servers: cachedServers });
       }
 
-      // 2. Fetch fresh from API
       const { data } = await apiClient.get<Server[]>('/server');
       set({ servers: data, isLoading: false });
       await db.servers.clear();
       await db.servers.bulkPut(data);
 
-      // Auto-select first server if none selected
       if (!get().activeServer && data.length > 0) {
         await get().setActiveServer(data[0]);
       } else if (get().activeServer) {
@@ -59,7 +82,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
         }
       }
     } catch (err) {
-      console.error('Failed to fetch servers:', err);
+      console.error('Lỗi tải danh sách máy chủ:', err);
       set({ isLoading: false });
     }
   },
@@ -73,7 +96,6 @@ export const useServerStore = create<ServerState>((set, get) => ({
         members: data.members || [],
       });
 
-      // Auto-select default channel (first text channel)
       if (data.channels && data.channels.length > 0) {
         const currentChannel = get().activeChannel;
         const channelInThisServer = currentChannel
@@ -88,7 +110,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
         set({ activeChannel: null });
       }
     } catch (err) {
-      console.error('Failed to load server details:', err);
+      console.error('Lỗi tải chi tiết máy chủ:', err);
     }
   },
 
@@ -130,8 +152,8 @@ export const useServerStore = create<ServerState>((set, get) => ({
     return data;
   },
 
-  joinServer: async (inviteCode: string) => {
-    const cleanCode = inviteCode.trim();
+  joinServer: async (inviteCodeOrLink: string) => {
+    const cleanCode = extractInviteCode(inviteCodeOrLink);
     const { data } = await apiClient.post<Server>(`/server/join/${encodeURIComponent(cleanCode)}`);
     set((state) => {
       const exists = state.servers.some((s) => s.id === data.id);
@@ -164,7 +186,7 @@ export const useServerStore = create<ServerState>((set, get) => ({
 
   createChannel: async (name: string, type: 1 | 2, topic?: string) => {
     const activeServer = get().activeServer;
-    if (!activeServer) throw new Error('No active server');
+    if (!activeServer) throw new Error('Chưa chọn máy chủ');
 
     const { data } = await apiClient.post<Channel>('/channel', {
       serverId: activeServer.id,

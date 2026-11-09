@@ -52,7 +52,7 @@ const CodeBlockView: React.FC<{ language: string; code: string }> = ({ language,
           ) : (
             <>
               <Copy className="w-3 h-3" />
-              <span>Copy</span>
+              <span>Sao chép</span>
             </>
           )}
         </button>
@@ -99,14 +99,14 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, repliedMessag
 
   const isOwnMessage = user?.id === message.sender.id;
 
-  const formattedTime = new Date(message.createdAt).toLocaleTimeString([], {
+  const formattedTime = new Date(message.createdAt).toLocaleTimeString('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',
   });
 
-  const formattedDate = new Date(message.createdAt).toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
+  const formattedDate = new Date(message.createdAt).toLocaleDateString('vi-VN', {
+    month: '2-digit',
+    day: '2-digit',
   });
 
   const initials = message.sender.displayName
