@@ -83,3 +83,4 @@ Run frontend unit tests:
 cd apps/desktop
 npm test
 ```
+
