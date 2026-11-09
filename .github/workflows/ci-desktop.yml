@@ -37,3 +37,4 @@ jobs:
     - name: Build Web Production Bundle
       working-directory: apps/desktop
       run: npm run build
+
