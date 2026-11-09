@@ -233,18 +233,18 @@ export const ChannelSidebar: React.FC = () => {
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      {textChannels.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteChannel(channel.id);
-                          }}
-                          title="Xoá kênh"
-                          className="text-pulse-muted hover:text-rose-400 p-0.5 rounded hover:bg-pulse-card transition"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Bạn có chắc muốn xoá kênh #${channel.name} không?`)) {
+                            await deleteChannel(channel.id);
+                          }
+                        }}
+                        title="Xoá kênh"
+                        className="text-pulse-muted hover:text-rose-400 p-0.5 rounded hover:bg-pulse-card transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 );
@@ -301,18 +301,18 @@ export const ChannelSidebar: React.FC = () => {
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
-                          {voiceChannels.length > 1 && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteChannel(channel.id);
-                              }}
-                              title="Xoá phòng họp"
-                              className="text-pulse-muted hover:text-rose-400 p-0.5 rounded hover:bg-pulse-card transition"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (window.confirm(`Bạn có chắc muốn xoá phòng họp "${channel.name}" không?`)) {
+                                await deleteChannel(channel.id);
+                              }
+                            }}
+                            title="Xoá phòng họp"
+                            className="text-pulse-muted hover:text-rose-400 p-0.5 rounded hover:bg-pulse-card transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                         {roomMembers.length > 0 && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
@@ -507,21 +507,39 @@ export const ChannelSidebar: React.FC = () => {
                   className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white placeholder-pulse-muted focus:outline-none focus:border-pulse-accent"
                 />
               </div>
-              <div className="flex justify-end space-x-3 pt-1">
+              <div className="flex items-center justify-between pt-2">
                 <button
                   type="button"
-                  onClick={() => setEditingChannel(null)}
-                  className="px-4 py-2 text-sm text-pulse-muted hover:text-white"
+                  onClick={async () => {
+                    if (
+                      editingChannel &&
+                      window.confirm(`Bạn có chắc muốn xoá "${editingChannel.name}" không?`)
+                    ) {
+                      await deleteChannel(editingChannel.id);
+                      setEditingChannel(null);
+                    }
+                  }}
+                  className="px-3 py-2 text-xs bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 font-semibold rounded-lg transition flex items-center space-x-1"
                 >
-                  Huỷ
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Xoá Kênh</span>
                 </button>
-                <button
-                  type="submit"
-                  disabled={isUpdatingChannel}
-                  className="px-5 py-2 text-sm bg-pulse-accent hover:bg-pulse-accentHover text-white font-semibold rounded-lg transition shadow-lg shadow-pulse-accent/25"
-                >
-                  {isUpdatingChannel ? 'Đang lưu...' : 'Lưu Thay Đổi'}
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingChannel(null)}
+                    className="px-4 py-2 text-sm text-pulse-muted hover:text-white"
+                  >
+                    Huỷ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingChannel}
+                    className="px-5 py-2 text-sm bg-pulse-accent hover:bg-pulse-accentHover text-white font-semibold rounded-lg transition shadow-lg shadow-pulse-accent/25"
+                  >
+                    {isUpdatingChannel ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
