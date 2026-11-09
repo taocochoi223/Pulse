@@ -1,0 +1,27 @@
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy project files for caching restore
+COPY ["apps/backend/src/Pulse.Domain/Pulse.Domain.csproj", "apps/backend/src/Pulse.Domain/"]
+COPY ["apps/backend/src/Pulse.Application/Pulse.Application.csproj", "apps/backend/src/Pulse.Application/"]
+COPY ["apps/backend/src/Pulse.Infrastructure/Pulse.Infrastructure.csproj", "apps/backend/src/Pulse.Infrastructure/"]
+COPY ["apps/backend/src/Pulse.WebAPI/Pulse.WebAPI.csproj", "apps/backend/src/Pulse.WebAPI/"]
+
+RUN dotnet restore "apps/backend/src/Pulse.WebAPI/Pulse.WebAPI.csproj"
+
+# Copy full source and publish
+COPY apps/backend/ apps/backend/
+WORKDIR "/src/apps/backend/src/Pulse.WebAPI"
+RUN dotnet publish "Pulse.WebAPI.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+EXPOSE 5000
+
+ENV ASPNETCORE_URLS=http://+:5000
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "Pulse.WebAPI.dll"]

@@ -1,0 +1,99 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pulse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pulse_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pulse_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pulse_secure_password_123!}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pulse_admin} -d ${POSTGRES_DB:-pulse_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pulse-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: pulse-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - pulse-network
+
+  livekit-server:
+    image: livekit/livekit-server:v1.8
+    container_name: pulse-livekit
+    restart: unless-stopped
+    command: ["--config", "/etc/livekit.yaml"]
+    ports:
+      - "7880:7880"         # HTTP / WebSocket signaling
+      - "7881:7881"         # WebRTC over TCP fallback
+      - "50000-50200:50000-50200/udp" # WebRTC ICE/UDP media traffic
+    volumes:
+      - ./infra/livekit/livekit.yaml:/etc/livekit.yaml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7880/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - pulse-network
+
+  backend-api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.backend
+    container_name: pulse-backend-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__PostgreSql: ${DATABASE_URL:-Host=postgres;Port=5432;Database=pulse_db;Username=pulse_admin;Password=pulse_secure_password_123!;}
+      ConnectionStrings__Redis: ${REDIS_CONNECTION_STRING:-redis:6379,abortConnect=false}
+      LiveKit__ServerUrl: ${LIVEKIT_URL:-http://livekit-server:7880}
+      LiveKit__ApiKey: ${LIVEKIT_API_KEY:-devkey}
+      LiveKit__ApiSecret: ${LIVEKIT_API_SECRET:-secretpulsekey1234567890abcdef}
+      Jwt__SecretKey: ${JWT_SECRET_KEY:-PulseSecretKeyForJwtAuthenticationMustBeAtLeast32CharsLong2026!}
+      Jwt__Issuer: ${JWT_ISSUER:-PulseAuthServer}
+      Jwt__Audience: ${JWT_AUDIENCE:-PulseClientApp}
+      Jwt__AccessTokenExpirationMinutes: ${JWT_ACCESS_TOKEN_EXPIRATION_MINUTES:-15}
+      Jwt__RefreshTokenExpirationDays: ${JWT_REFRESH_TOKEN_EXPIRATION_DAYS:-7}
+      AllowedOrigins: ${ALLOWED_ORIGINS:-http://localhost:1420,tauri://localhost,http://tauri.localhost}
+    ports:
+      - "${PORT_BACKEND:-5000}:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      livekit-server:
+        condition: service_healthy
+    networks:
+      - pulse-network
+
+volumes:
+  postgres_data:
+    name: pulse_postgres_data
+  redis_data:
+    name: pulse_redis_data
+
+networks:
+  pulse-network:
+    name: pulse-network
+    driver: bridge

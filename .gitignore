@@ -1,0 +1,55 @@
+# Environment variables
+.env
+.env.local
+*.env
+!.env.example
+
+# .NET / C#
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+_ReSharper*/
+*.DotSettings.user
+appsettings.Development.json
+appsettings.Production.json
+!appsettings.json
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Rust / Cargo
+target/
+Cargo.lock
+
+# Test Results & Coverage
+TestResults/
+coverage/
+*.lcov
+
+# IDEs & Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker volumes / local data
+postgres_data/
+redis_data/
+livekit_data/
