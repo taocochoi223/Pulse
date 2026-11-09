@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useServerStore } from '../../stores/useServerStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useVoiceStore } from '../../stores/useVoiceStore';
-import { discordBridge } from '../../services/discordBridge';
+import { discordBridge, type DiscordWebhookMeta } from '../../services/discordBridge';
 import { VoiceFooter } from './VoiceFooter';
 import {
   Hash,
@@ -49,6 +49,73 @@ export const ChannelSidebar: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [discordWebhookInput, setDiscordWebhookInput] = useState('');
   const [discordSaveStatus, setDiscordSaveStatus] = useState<string | null>(null);
+  const [discordMeta, setDiscordMeta] = useState<DiscordWebhookMeta | null>(null);
+  const autoCreatingDiscordRef = useRef(false);
+
+  // Tự động đồng bộ & tạo Kênh liên kết Discord ngay trên danh sách kênh khi đã lưu Webhook
+  useEffect(() => {
+    if (!activeServer) {
+      setDiscordMeta(null);
+      return;
+    }
+
+    const meta = discordBridge.getWebhookMeta(activeServer.id);
+    setDiscordMeta(meta);
+
+    if (!meta || !meta.url || autoCreatingDiscordRef.current) return;
+
+    const existingDiscordChannel = activeServer.channels?.find(
+      (c) =>
+        (meta.pulseChannelId && c.id === meta.pulseChannelId) ||
+        c.name.toLowerCase().startsWith('discord') ||
+        (c.topic && c.topic.toLowerCase().includes('discord'))
+    );
+
+    if (existingDiscordChannel) {
+      if (meta.pulseChannelId !== existingDiscordChannel.id) {
+        const updatedMeta: DiscordWebhookMeta = {
+          ...meta,
+          name: existingDiscordChannel.name,
+          pulseChannelId: existingDiscordChannel.id,
+        };
+        discordBridge.setWebhookMeta(activeServer.id, updatedMeta);
+        setDiscordMeta(updatedMeta);
+      }
+      return;
+    }
+
+    // Nếu người dùng đã lưu Webhook nhưng chưa có kênh Discord trên Pulse -> Tự động tạo ngay!
+    autoCreatingDiscordRef.current = true;
+    (async () => {
+      try {
+        const info = await discordBridge.inspectWebhook(meta.url);
+        const channelNameToCreate = info.name || 'discord-chung';
+        const topic = info.channelId
+          ? `🔗 Cầu nối trực tiếp với Kênh Discord (ID: ${info.channelId})`
+          : '🔗 Cầu nối trực tiếp với Kênh Discord của nhóm';
+        await createChannel(channelNameToCreate, 1, topic);
+        const latestChannels = useServerStore.getState().activeServer?.channels || [];
+        const created = latestChannels.find((c) => c.name === channelNameToCreate);
+        const updatedMeta: DiscordWebhookMeta = {
+          url: meta.url,
+          name: channelNameToCreate,
+          discordChannelId: info.channelId,
+          discordGuildId: info.guildId,
+          pulseChannelId: created?.id,
+          connectedAt: new Date().toISOString(),
+        };
+        discordBridge.setWebhookMeta(activeServer.id, updatedMeta);
+        setDiscordMeta(updatedMeta);
+        if (created) {
+          await setActiveChannel(created);
+        }
+      } catch (err) {
+        console.warn('Không thể tự động tạo kênh Discord:', err);
+      } finally {
+        autoCreatingDiscordRef.current = false;
+      }
+    })();
+  }, [activeServer?.id, activeServer?.channels?.length]);
 
   // Hộp thoại Chỉnh sửa Kênh
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
@@ -210,6 +277,50 @@ export const ChannelSidebar: React.FC = () => {
 
         {/* Danh sách Kênh */}
         <div className="flex-1 p-3 space-y-5 overflow-y-auto">
+          {/* Kênh Cầu nối Discord (Hiển thị ngay khi đã lưu Webhook!) */}
+          {discordMeta && (
+            <div>
+              <div className="flex items-center justify-between px-2 text-xs font-semibold text-indigo-400 uppercase tracking-wider mb-1.5">
+                <div className="flex items-center space-x-1.5">
+                  <Webhook className="w-3.5 h-3.5" />
+                  <span>Cầu Nối Discord</span>
+                </div>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold">
+                  LIVE
+                </span>
+              </div>
+              {(() => {
+                const linkedChannel =
+                  textChannels.find(
+                    (c) =>
+                      (discordMeta.pulseChannelId && c.id === discordMeta.pulseChannelId) ||
+                      c.name.toLowerCase().startsWith('discord')
+                  ) || textChannels[0];
+                const isActive = activeChannel?.id === linkedChannel?.id;
+                return (
+                  <div
+                    onClick={() => linkedChannel && handleChannelClick(linkedChannel)}
+                    className={`group flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer border ${
+                      isActive
+                        ? 'bg-indigo-600/25 text-white border-indigo-500/50 shadow-md shadow-indigo-600/10'
+                        : 'bg-indigo-500/10 text-indigo-200 border-indigo-500/20 hover:bg-indigo-500/20'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 truncate">
+                      <Webhook className="w-4 h-4 text-indigo-400 shrink-0" />
+                      <span className="truncate font-semibold">
+                        #{linkedChannel?.name || discordMeta.name}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-emerald-400 font-bold shrink-0">
+                      Đồng bộ 24/7
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {/* Kênh Trò chuyện (Văn bản) */}
           <div>
             <div className="flex items-center justify-between px-2 text-xs font-semibold text-pulse-muted uppercase tracking-wider mb-1.5">
@@ -228,6 +339,9 @@ export const ChannelSidebar: React.FC = () => {
             <div className="space-y-0.5">
               {textChannels.map((channel) => {
                 const isActive = activeChannel?.id === channel.id;
+                const isDiscordChannel =
+                  (discordMeta?.pulseChannelId && channel.id === discordMeta.pulseChannelId) ||
+                  channel.name.toLowerCase().startsWith('discord');
                 return (
                   <div
                     key={channel.id}
@@ -239,8 +353,17 @@ export const ChannelSidebar: React.FC = () => {
                     onClick={() => handleChannelClick(channel)}
                   >
                     <div className="flex items-center space-x-2 truncate">
-                      <Hash className="w-4 h-4 text-pulse-muted shrink-0" />
+                      {isDiscordChannel ? (
+                        <Webhook className="w-4 h-4 text-indigo-400 shrink-0" />
+                      ) : (
+                        <Hash className="w-4 h-4 text-pulse-muted shrink-0" />
+                      )}
                       <span className="truncate">{channel.name}</span>
+                      {isDiscordChannel && (
+                        <span className="text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold shrink-0">
+                          DISCORD
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition">
                       <button
@@ -552,14 +675,49 @@ export const ChannelSidebar: React.FC = () => {
                 <button
                   type="button"
                   onClick={async () => {
-                    discordBridge.setWebhookUrl(activeServer.id, discordWebhookInput);
-                    if (!discordWebhookInput.trim()) {
+                    const trimmedUrl = discordWebhookInput.trim();
+                    if (!trimmedUrl) {
+                      discordBridge.setWebhookMeta(activeServer.id, null);
+                      setDiscordMeta(null);
                       setDiscordSaveStatus('Đã tắt Cầu nối Discord cho máy chủ này.');
                       return;
                     }
-                    setDiscordSaveStatus('Đang gửi thông báo kiểm tra sang Discord...');
+                    setDiscordSaveStatus('Đang lấy thông tin kênh Discord & tạo kênh trên Pulse...');
+                    const info = await discordBridge.inspectWebhook(trimmedUrl);
+                    const targetName = info.name || 'discord-chung';
+
+                    let linked = activeServer.channels?.find(
+                      (c) =>
+                        c.name.toLowerCase() === targetName.toLowerCase() ||
+                        c.name.toLowerCase().startsWith('discord')
+                    );
+
+                    if (!linked) {
+                      const topic = info.channelId
+                        ? `🔗 Cầu nối trực tiếp với Kênh Discord (ID: ${info.channelId})`
+                        : '🔗 Cầu nối trực tiếp với Kênh Discord của nhóm';
+                      await createChannel(targetName, 1, topic);
+                      const refreshed = useServerStore.getState().activeServer?.channels || [];
+                      linked = refreshed.find((c) => c.name === targetName);
+                    }
+
+                    const newMeta: DiscordWebhookMeta = {
+                      url: trimmedUrl,
+                      name: linked?.name || targetName,
+                      discordChannelId: info.channelId,
+                      discordGuildId: info.guildId,
+                      pulseChannelId: linked?.id,
+                      connectedAt: new Date().toISOString(),
+                    };
+                    discordBridge.setWebhookMeta(activeServer.id, newMeta);
+                    setDiscordMeta(newMeta);
+
+                    if (linked) {
+                      await setActiveChannel(linked);
+                    }
+
                     const ok = await discordBridge.sendTestPing({
-                      webhookUrl: discordWebhookInput,
+                      webhookUrl: trimmedUrl,
                       serverName: activeServer.name,
                       displayName: user?.displayName || 'Trí',
                       avatarUrl: user?.avatarUrl,
@@ -567,13 +725,13 @@ export const ChannelSidebar: React.FC = () => {
                     });
                     setDiscordSaveStatus(
                       ok
-                        ? '✅ Đã lưu & gửi thông báo sang Discord thành công!'
-                        : '⚠️ Đã lưu URL (Hãy kiểm tra lại đúng link Discord Webhook nhé).'
+                        ? `✅ Đã tạo kênh #${newMeta.name} trên Pulse & đồng bộ với Discord!`
+                        : `⚠️ Đã tạo kênh #${newMeta.name} trên Pulse (Kiểm tra lại link Discord Webhook nếu chưa thấy tin nhắn bên Discord).`
                     );
                   }}
                   className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shrink-0 shadow-md shadow-indigo-600/20"
                 >
-                  Lưu & Thử
+                  Lưu & Tạo Kênh
                 </button>
               </div>
               {discordSaveStatus && (

@@ -389,10 +389,21 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({ participant }) => {
         {participant.isLocal && <span className="text-emerald-400 text-[10px]">(Bạn)</span>}
       </div>
 
-      {/* Nhãn trạng thái Mic / Màn hình */}
+      {/* Nhãn trạng thái Mic / Loa / Màn hình */}
       <div className="absolute top-3 right-3 flex items-center space-x-1.5">
+        {participant.isDeafened && (
+          <div
+            title="Đang tắt Loa / Tai nghe"
+            className="p-1.5 bg-rose-600/90 text-white rounded-lg backdrop-blur-sm shadow-md"
+          >
+            <HeadphoneOff className="w-3.5 h-3.5" />
+          </div>
+        )}
         {participant.isMuted && (
-          <div className="p-1.5 bg-rose-500/90 text-white rounded-lg backdrop-blur-sm shadow-md">
+          <div
+            title="Đang tắt Micro"
+            className="p-1.5 bg-rose-500/90 text-white rounded-lg backdrop-blur-sm shadow-md"
+          >
             <MicOff className="w-3.5 h-3.5" />
           </div>
         )}
