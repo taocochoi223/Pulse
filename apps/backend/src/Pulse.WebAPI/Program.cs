@@ -9,6 +9,25 @@ using Pulse.WebAPI.Middlewares;
 using Pulse.WebAPI.Services;
 using Serilog;
 
+// 1. Load .env file automatically
+var envCandidates = new[]
+{
+    Path.Combine(Directory.GetCurrentDirectory(), ".env"),
+    Path.Combine(Directory.GetCurrentDirectory(), "../../.env"),
+    Path.Combine(AppContext.BaseDirectory, ".env"),
+    Path.Combine(AppContext.BaseDirectory, "../../../../.env")
+};
+
+foreach (var envPath in envCandidates)
+{
+    if (File.Exists(envPath))
+    {
+        DotNetEnv.Env.Load(envPath);
+        break;
+    }
+}
+DotNetEnv.Env.TraversePath().Load();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Serilog
@@ -34,10 +53,15 @@ builder.Services.AddSignalR(options =>
 builder.Services.AddScoped<ISignalRNotifier, SignalRNotifier>();
 
 // JWT Authentication
-var jwtSecretKey = builder.Configuration["Jwt:SecretKey"]
+var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
+    ?? builder.Configuration["Jwt:SecretKey"]
     ?? "PulseSecretKeyForJwtAuthenticationMustBeAtLeast32CharsLong2026!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "PulseAuthServer";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "PulseClientApp";
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+    ?? builder.Configuration["Jwt:Issuer"]
+    ?? "PulseAuthServer";
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+    ?? builder.Configuration["Jwt:Audience"]
+    ?? "PulseClientApp";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -60,7 +84,6 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 
-    // Support token passing via QueryString for SignalR WebSockets
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -79,8 +102,11 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // CORS for Desktop Client
-var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(',', StringSplitOptions.RemoveEmptyEntries)
-    ?? ["http://localhost:1420", "tauri://localhost", "http://tauri.localhost"];
+var rawOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
+    ?? builder.Configuration["AllowedOrigins"]
+    ?? "http://localhost:1420,tauri://localhost,http://tauri.localhost";
+
+var allowedOrigins = rawOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
 builder.Services.AddCors(options =>
 {
