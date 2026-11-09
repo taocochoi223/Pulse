@@ -1,0 +1,64 @@
+name: Release Desktop App (.exe)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './apps/desktop/src-tauri -> target'
+
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Inject Production Backend URL into .env
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          echo "VITE_API_BASE_URL=https://pulse-team-api.fly.dev/api/v1" > .env.production
+          echo "VITE_HUB_URL=https://pulse-team-api.fly.dev/hubs/chat" >> .env.production
+          echo "VITE_LIVEKIT_WS_URL=ws://localhost:7880" >> .env.production
+
+      - name: Build Tauri App (.exe & installer)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: './apps/desktop'
+          tagName: pulse-v__VERSION__
+          releaseName: 'Pulse Desktop v__VERSION__'
+          releaseBody: 'Download Pulse Desktop Setup for Windows (.exe). Ultra-lightweight native client (<40MB RAM).'
+          releaseDraft: false
+          prerelease: false
