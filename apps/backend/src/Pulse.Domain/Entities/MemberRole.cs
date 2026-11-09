@@ -10,3 +10,4 @@ public class MemberRole
     public Member Member { get; set; } = null!;
     public Role Role { get; set; } = null!;
 }
+

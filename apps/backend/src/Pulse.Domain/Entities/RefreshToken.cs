@@ -17,3 +17,4 @@ public class RefreshToken : BaseEntity
     // Navigation property
     public User User { get; set; } = null!;
 }
+

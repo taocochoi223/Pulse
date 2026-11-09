@@ -24,3 +24,4 @@ public class Message : BaseEntity, ISoftDeletable
     public ICollection<Message> Replies { get; set; } = [];
     public ICollection<Attachment> Attachments { get; set; } = [];
 }
+

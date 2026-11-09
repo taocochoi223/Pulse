@@ -7,3 +7,4 @@ public enum MemberRole
     Member = 3,
     Guest = 4
 }
+

@@ -20,3 +20,4 @@ room:
   empty_timeout: 300
   departure_timeout: 20
   max_participants: 50
+

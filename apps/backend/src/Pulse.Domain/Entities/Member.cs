@@ -14,3 +14,4 @@ public class Member : BaseEntity
     public User User { get; set; } = null!;
     public ICollection<MemberRole> MemberRoles { get; set; } = [];
 }
+

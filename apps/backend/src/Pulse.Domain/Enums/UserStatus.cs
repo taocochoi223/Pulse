@@ -7,3 +7,4 @@ public enum UserStatus
     Idle = 2,
     DoNotDisturb = 3
 }
+

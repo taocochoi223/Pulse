@@ -46,3 +46,4 @@ public class UserEntityTests
         Assert.False(token.IsActive);
     }
 }
+

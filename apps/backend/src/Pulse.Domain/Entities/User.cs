@@ -19,3 +19,4 @@ public class User : BaseEntity
     public ICollection<Message> Messages { get; set; } = [];
     public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
 }
+

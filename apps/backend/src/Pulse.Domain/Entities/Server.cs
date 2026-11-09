@@ -20,3 +20,4 @@ public class Server : BaseEntity, ISoftDeletable
     public ICollection<Member> Members { get; set; } = [];
     public ICollection<Role> Roles { get; set; } = [];
 }
+

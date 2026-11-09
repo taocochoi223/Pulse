@@ -15,3 +15,4 @@ public class Role : BaseEntity
     public Server Server { get; set; } = null!;
     public ICollection<MemberRole> MemberRoles { get; set; } = [];
 }
+

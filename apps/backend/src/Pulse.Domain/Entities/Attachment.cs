@@ -15,3 +15,4 @@ public class Attachment : BaseEntity
     // Navigation properties
     public Message Message { get; set; } = null!;
 }
+

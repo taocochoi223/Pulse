@@ -6,3 +6,4 @@ public enum MessageType
     Reply = 2,
     System = 3
 }
+

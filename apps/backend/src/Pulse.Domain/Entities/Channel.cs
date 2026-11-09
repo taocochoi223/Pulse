@@ -19,3 +19,4 @@ public class Channel : BaseEntity, ISoftDeletable
     public Server Server { get; set; } = null!;
     public ICollection<Message> Messages { get; set; } = [];
 }
+
