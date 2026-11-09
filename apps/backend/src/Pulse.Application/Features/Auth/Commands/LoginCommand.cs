@@ -44,14 +44,23 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResponseDto
 
     public async Task<AuthResponseDto> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
-        var identifier = request.EmailOrUsername.Trim().ToLower();
+        var identifier = request.EmailOrUsername.Trim().TrimStart('@').ToLower();
 
         var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == identifier || u.Username.ToLower() == identifier, cancellationToken);
+            .FirstOrDefaultAsync(
+                u => u.Email.ToLower() == identifier ||
+                     u.Username.ToLower() == identifier ||
+                     u.DisplayName.ToLower() == identifier,
+                cancellationToken);
 
-        if (user == null || !_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
+        if (user == null)
         {
-            throw new UnauthorizedException("Invalid credentials.");
+            throw new UnauthorizedException("Không tìm thấy tài khoản với Email / Username này.");
+        }
+
+        if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
+        {
+            throw new UnauthorizedException("Sai mật khẩu! Bạn có thể bấm 'Quên mật khẩu' bên dưới để đặt lại ngay.");
         }
 
         user.Status = UserStatus.Online;
@@ -82,4 +91,3 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResponseDto
         return new AuthResponseDto(accessToken, refreshToken.Token, refreshToken.ExpiresAt, userDto);
     }
 }
-

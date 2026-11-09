@@ -18,6 +18,7 @@ interface AuthState {
   setAuth: (authData: AuthResponse) => void;
   login: (emailOrUsername: string, password: string) => Promise<void>;
   register: (username: string, displayName: string, email: string, password: string) => Promise<void>;
+  resetPassword: (emailOrUsername: string, newPassword: string) => Promise<void>;
   updateProfile: (payload: UpdateProfilePayload) => Promise<User>;
   logout: () => void;
   initAuth: () => Promise<void>;
@@ -55,6 +56,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       displayName,
       email,
       password,
+    });
+    useAuthStore.getState().setAuth(data);
+  },
+
+  resetPassword: async (emailOrUsername, newPassword) => {
+    const { data } = await apiClient.post<AuthResponse>('/auth/reset-password', {
+      emailOrUsername,
+      newPassword,
     });
     useAuthStore.getState().setAuth(data);
   },

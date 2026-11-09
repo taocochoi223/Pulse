@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Send, Smile, Paperclip, X, Reply, FileText, Loader2 } from 'lucide-react';
+import { Send, Smile, Paperclip, X, Reply, FileText, Loader2, Code2 } from 'lucide-react';
 import { signalRService } from '../../services/signalr';
 import { apiClient } from '../../services/api';
 import { useMessageStore } from '../../stores/useMessageStore';
@@ -280,6 +280,18 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           placeholder={`Nhắn tin tới #${channelName} (hỗ trợ dán ảnh Ctrl+V)...`}
           className="flex-1 bg-transparent text-white placeholder-pulse-muted resize-none focus:outline-none text-sm max-h-32 leading-relaxed"
         />
+
+        <button
+          type="button"
+          onClick={() => {
+            setContent((prev) => `${prev}\`\`\`ts\n// code here\n\`\`\``);
+            textareaRef.current?.focus();
+          }}
+          title="Chèn đoạn Code (Code Block)"
+          className="text-pulse-muted hover:text-white transition"
+        >
+          <Code2 className="w-5 h-5" />
+        </button>
 
         <button
           type="button"

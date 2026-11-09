@@ -5,6 +5,7 @@ import { useMessageStore } from '../../stores/useMessageStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { VirtualizedMessageList } from '../chat/VirtualizedMessageList';
 import { MessageInput } from '../chat/MessageInput';
+import { AudioDeviceSelector } from './AudioDeviceSelector';
 import {
   Mic,
   MicOff,
@@ -218,6 +219,9 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
           >
             <MessageSquare className="w-5 h-5" />
           </button>
+
+          {/* Audio & Video Device Selector */}
+          <AudioDeviceSelector />
 
           <div className="w-[1px] h-6 bg-pulse-border mx-1" />
 

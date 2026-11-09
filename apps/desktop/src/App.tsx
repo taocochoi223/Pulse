@@ -13,7 +13,7 @@ import { Hash, Sparkles, Volume2, Search, Pin, Users, X, Pencil, Check } from 'l
 import type { Message, VoiceParticipant } from './types';
 
 export const App: React.FC = () => {
-  const { isAuthenticated, initAuth, login, register } = useAuthStore();
+  const { isAuthenticated, initAuth, login, register, resetPassword } = useAuthStore();
   const { activeChannel, activeServer, fetchServers, updateChannel, updateMemberPresence } = useServerStore();
   const {
     messages,
@@ -32,6 +32,7 @@ export const App: React.FC = () => {
 
   // Auth Form State
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [isResetPasswordMode, setIsResetPasswordMode] = useState(false);
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authUsername, setAuthUsername] = useState('');
@@ -150,19 +151,27 @@ export const App: React.FC = () => {
     e.preventDefault();
     setAuthError(null);
     try {
-      if (isRegisterMode) {
+      if (isResetPasswordMode) {
+        await resetPassword(authEmail, authPassword);
+      } else if (isRegisterMode) {
         await register(authUsername, authDisplayName, authEmail, authPassword);
       } else {
         await login(authEmail, authPassword);
       }
     } catch (err: any) {
+      const validationErrors = err.response?.data?.errors;
+      const firstValidationMsg = validationErrors
+        ? (Object.values(validationErrors).flat()[0] as string)
+        : null;
       setAuthError(
-        err.response?.data?.detail || 'Xác thực thất bại. Vui lòng kiểm tra lại thông tin.'
+        firstValidationMsg ||
+          err.response?.data?.detail ||
+          'Xác thực thất bại. Vui lòng kiểm tra lại thông tin.'
       );
     }
   };
 
-  // 1. Unauthenticated View (Login / Register)
+  // 1. Unauthenticated View (Login / Register / Reset Password)
   if (!isAuthenticated) {
     return (
       <div className="h-screen w-screen bg-pulse-bg flex items-center justify-center p-4">
@@ -175,10 +184,16 @@ export const App: React.FC = () => {
           </div>
 
           <h2 className="text-lg font-bold text-white text-center mb-1">
-            {isRegisterMode ? 'Tạo Tài Khoản Mới' : 'Chào Mừng Trở Lại'}
+            {isResetPasswordMode
+              ? 'Đặt Lại Mật Khẩu Nhanh'
+              : isRegisterMode
+              ? 'Tạo Tài Khoản Mới'
+              : 'Chào Mừng Trở Lại'}
           </h2>
           <p className="text-xs text-pulse-muted text-center mb-6">
-            Nền tảng giao tiếp & họp nhóm tốc độ cao, siêu nhẹ.
+            {isResetPasswordMode
+              ? 'Nhập Username (VD: taocochoi223) hoặc Email và mật khẩu mới'
+              : 'Nền tảng giao tiếp & họp nhóm tốc độ cao, siêu nhẹ.'}
           </p>
 
           {authError && (
@@ -188,7 +203,7 @@ export const App: React.FC = () => {
           )}
 
           <form onSubmit={handleAuthSubmit} className="space-y-4">
-            {isRegisterMode && (
+            {isRegisterMode && !isResetPasswordMode && (
               <>
                 <div>
                   <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
@@ -221,22 +236,42 @@ export const App: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                {isRegisterMode ? 'Email' : 'Email hoặc Username'}
+                {isRegisterMode && !isResetPasswordMode
+                  ? 'Email'
+                  : 'Email, Username hoặc Tên hiển thị'}
               </label>
               <input
-                type={isRegisterMode ? 'email' : 'text'}
+                type={isRegisterMode && !isResetPasswordMode ? 'email' : 'text'}
                 required
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
-                placeholder="tri@pulse.local"
+                placeholder={
+                  isRegisterMode && !isResetPasswordMode
+                    ? 'tri@pulse.local'
+                    : 'VD: taocochoi223 hoặc Tri'
+                }
                 className="w-full bg-pulse-bg border border-pulse-border rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-pulse-accent"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase text-pulse-muted mb-1">
-                Mật khẩu
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold uppercase text-pulse-muted">
+                  {isResetPasswordMode ? 'Mật khẩu mới (tối thiểu 6 ký tự)' : 'Mật khẩu'}
+                </label>
+                {!isRegisterMode && !isResetPasswordMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsResetPasswordMode(true);
+                      setAuthError(null);
+                    }}
+                    className="text-[11px] text-pulse-accent hover:underline font-medium"
+                  >
+                    Quên mật khẩu?
+                  </button>
+                )}
+              </div>
               <input
                 type="password"
                 required
@@ -251,21 +286,39 @@ export const App: React.FC = () => {
               type="submit"
               className="w-full py-2.5 bg-pulse-accent hover:bg-pulse-accentHover text-white font-semibold rounded-lg transition shadow-lg shadow-pulse-accent/25"
             >
-              {isRegisterMode ? 'Đăng Ký' : 'Đăng Nhập'}
+              {isResetPasswordMode
+                ? 'Đổi Mật Khẩu & Đăng Nhập Ngay'
+                : isRegisterMode
+                ? 'Đăng Ký'
+                : 'Đăng Nhập'}
             </button>
           </form>
 
-          <div className="mt-6 text-center text-xs text-pulse-muted">
-            {isRegisterMode ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}{' '}
-            <button
-              onClick={() => {
-                setIsRegisterMode(!isRegisterMode);
-                setAuthError(null);
-              }}
-              className="text-pulse-accent hover:underline font-medium ml-1"
-            >
-              {isRegisterMode ? 'Đăng Nhập' : 'Đăng Ký Ngay'}
-            </button>
+          <div className="mt-6 text-center text-xs text-pulse-muted space-y-2">
+            {isResetPasswordMode ? (
+              <button
+                onClick={() => {
+                  setIsResetPasswordMode(false);
+                  setAuthError(null);
+                }}
+                className="text-pulse-accent hover:underline font-medium"
+              >
+                ← Quay lại Đăng Nhập
+              </button>
+            ) : (
+              <div>
+                {isRegisterMode ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'}{' '}
+                <button
+                  onClick={() => {
+                    setIsRegisterMode(!isRegisterMode);
+                    setAuthError(null);
+                  }}
+                  className="text-pulse-accent hover:underline font-medium ml-1"
+                >
+                  {isRegisterMode ? 'Đăng Nhập' : 'Đăng Ký Ngay'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

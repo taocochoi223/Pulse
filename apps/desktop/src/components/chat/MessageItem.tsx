@@ -12,6 +12,7 @@ import {
   CornerUpRight,
   Check,
   X,
+  Copy,
 } from 'lucide-react';
 
 interface MessageItemProps {
@@ -23,6 +24,69 @@ const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const CodeBlockView: React.FC<{ language: string; code: string }> = ({ language, code }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  return (
+    <div className="my-2 rounded-xl overflow-hidden border border-pulse-border bg-[#0b0d13] max-w-2xl">
+      <div className="px-3 py-1.5 bg-pulse-panel border-b border-pulse-border flex items-center justify-between text-[11px] text-pulse-muted">
+        <span className="font-mono uppercase">{language || 'code'}</span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center space-x-1 hover:text-white transition"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3 h-3 text-emerald-400" />
+              <span className="text-emerald-400">Đã chép</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3 h-3" />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="p-3 text-xs font-mono text-emerald-300 overflow-x-auto leading-relaxed">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+};
+
+const renderFormattedContent = (text: string) => {
+  const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(
+        <span key={`txt-${lastIndex}`}>{text.slice(lastIndex, match.index)}</span>
+      );
+    }
+    const lang = match[1] || 'code';
+    const codeContent = match[2].replace(/\n$/, '');
+    parts.push(<CodeBlockView key={`code-${match.index}`} language={lang} code={codeContent} />);
+    lastIndex = codeBlockRegex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(<span key={`txt-${lastIndex}`}>{text.slice(lastIndex)}</span>);
+  }
+
+  return parts;
 };
 
 export const MessageItem: React.FC<MessageItemProps> = ({ message, repliedMessage }) => {
@@ -145,7 +209,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, repliedMessag
           ) : (
             message.content && (
               <div className="text-sm text-pulse-text mt-0.5 break-words whitespace-pre-wrap leading-relaxed select-text">
-                {message.content}
+                {renderFormattedContent(message.content)}
               </div>
             )
           )}

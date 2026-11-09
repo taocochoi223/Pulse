@@ -19,11 +19,19 @@ public class JwtTokenGenerator : IJwtTokenGenerator
 
     public string GenerateAccessToken(Guid userId, string username, string email)
     {
-        var secretKey = _configuration["Jwt:SecretKey"]
+        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
+            ?? _configuration["Jwt:SecretKey"]
             ?? "PulseSecretKeyForJwtAuthenticationMustBeAtLeast32CharsLong2026!";
-        var issuer = _configuration["Jwt:Issuer"] ?? "PulseAuthServer";
-        var audience = _configuration["Jwt:Audience"] ?? "PulseClientApp";
-        var expiryMinutes = int.TryParse(_configuration["Jwt:AccessTokenExpirationMinutes"], out var exp) ? exp : 15;
+        var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+            ?? _configuration["Jwt:Issuer"]
+            ?? "PulseAuthServer";
+        var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+            ?? _configuration["Jwt:Audience"]
+            ?? "PulseClientApp";
+
+        var rawExp = Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_EXPIRATION_MINUTES")
+            ?? _configuration["Jwt:AccessTokenExpirationMinutes"];
+        var expiryMinutes = int.TryParse(rawExp, out var exp) && exp >= 60 ? exp : 10080; // Default 7 days
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -55,10 +63,9 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         rng.GetBytes(randomNumber);
 
         var token = Convert.ToBase64String(randomNumber);
-        var expiryDays = int.TryParse(_configuration["Jwt:RefreshTokenExpirationDays"], out var days) ? days : 7;
+        var expiryDays = int.TryParse(_configuration["Jwt:RefreshTokenExpirationDays"], out var days) ? days : 30;
         var expiresAt = DateTimeOffset.UtcNow.AddDays(expiryDays);
 
         return (token, expiresAt);
     }
 }
-

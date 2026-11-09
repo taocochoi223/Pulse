@@ -249,6 +249,47 @@ class LiveKitVoiceService {
     return this.isScreenSharing;
   }
 
+  public async switchAudioDevice(deviceId: string): Promise<void> {
+    try {
+      this.localMicStream?.getTracks().forEach((t) => t.stop());
+      this.localMicStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: { exact: deviceId },
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+        video: false,
+      });
+      this.localMicStream.getAudioTracks().forEach((t) => {
+        t.enabled = !this.isMuted;
+      });
+      this.setupVoiceActivityDetection(this.localMicStream);
+      await this.replaceOutgoingTracks();
+      this.emitParticipants();
+    } catch (err) {
+      console.warn('[VoiceEngine] Failed to switch audio device:', err);
+    }
+  }
+
+  public async switchVideoDevice(deviceId: string): Promise<void> {
+    if (!this.isCameraOn) return;
+    try {
+      this.localCameraStream?.getTracks().forEach((t) => t.stop());
+      this.localCameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          deviceId: { exact: deviceId },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+      await this.replaceOutgoingTracks();
+      this.emitParticipants();
+    } catch (err) {
+      console.warn('[VoiceEngine] Failed to switch video device:', err);
+    }
+  }
+
   // =====================================================================
   // WEBRTC P2P MESH ENGINE
   // =====================================================================
