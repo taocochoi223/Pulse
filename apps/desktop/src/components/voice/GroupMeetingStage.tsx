@@ -20,6 +20,9 @@ import {
   Volume2,
   MessageSquare,
   X,
+  Minimize2,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 import type { Channel, VoiceParticipant } from '../../types';
 
@@ -70,6 +73,7 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
   } = useMessageStore();
 
   const [isMeetingChatOpen, setIsMeetingChatOpen] = useState(false);
+  const [pinnedParticipantId, setPinnedParticipantId] = useState<string | null>(null);
 
   // Tự động tham gia phòng họp khi bấm vào kênh Voice (nếu chưa ở trong phòng này)
   useEffect(() => {
@@ -132,14 +136,41 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
           },
         ];
 
+  // Tự động ghim người đang chia sẻ màn hình làm tiêu điểm (Spotlight) nếu chưa ghim ai
+  useEffect(() => {
+    const screenSharer = displayParticipants.find((p) => p.isScreenSharing);
+    if (screenSharer && !pinnedParticipantId) {
+      setPinnedParticipantId(screenSharer.connectionId || screenSharer.identity);
+    } else if (pinnedParticipantId) {
+      const stillExists = displayParticipants.some(
+        (p) => (p.connectionId || p.identity) === pinnedParticipantId
+      );
+      if (!stillExists) {
+        setPinnedParticipantId(null);
+      }
+    }
+  }, [displayParticipants, pinnedParticipantId]);
+
+  const spotlightParticipant = pinnedParticipantId
+    ? displayParticipants.find(
+        (p) => (p.connectionId || p.identity) === pinnedParticipantId
+      )
+    : null;
+
+  const thumbnailParticipants = spotlightParticipant
+    ? displayParticipants.filter(
+        (p) => (p.connectionId || p.identity) !== pinnedParticipantId
+      )
+    : displayParticipants;
+
   return (
-    <div className="flex-1 flex h-full bg-[#0d0f15] select-none relative overflow-hidden">
+    <div className="flex-1 flex h-full bg-pulse-deep select-none relative overflow-hidden">
       {/* Sân khấu chính */}
       <div className="flex-1 flex flex-col h-full relative min-w-0">
-        {/* 1. Thanh tiêu đề Phòng họp */}
-        <div className="h-14 border-b border-pulse-border/60 px-6 flex items-center justify-between shrink-0 bg-pulse-panel/40 backdrop-blur-sm z-10">
+        {/* 1. Thanh tiêu đề Phòng họp Glassmorphism */}
+        <div className="h-14 border-b border-pulse-border/60 px-6 flex items-center justify-between shrink-0 glass-panel z-10">
           <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-emerald-400 text-xs font-semibold">
+            <div className="flex items-center space-x-1.5 px-3 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-emerald-400 text-xs font-semibold shadow-glow-emerald">
               <Radio className="w-3.5 h-3.5 animate-pulse" />
               <span>PHÒNG HỌP TRỰC TIẾP</span>
             </div>
@@ -158,7 +189,16 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
           </div>
 
           <div className="flex items-center space-x-3 text-xs text-pulse-muted">
-            <div className="flex items-center space-x-1.5 bg-pulse-card px-3 py-1.5 rounded-lg border border-pulse-border">
+            {spotlightParticipant && (
+              <button
+                onClick={() => setPinnedParticipantId(null)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-pulse-accent/20 text-pulse-neon rounded-lg border border-pulse-accent/30 hover:bg-pulse-accent/30 transition text-xs font-semibold"
+              >
+                <Minimize2 className="w-3.5 h-3.5" />
+                <span>Thoát Tiêu Điểm</span>
+              </button>
+            )}
+            <div className="flex items-center space-x-1.5 bg-pulse-card/80 px-3 py-1.5 rounded-lg border border-pulse-border">
               <Users className="w-3.5 h-3.5 text-pulse-accent" />
               <span className="text-white font-medium">
                 {displayParticipants.length} người tham gia
@@ -167,30 +207,75 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
           </div>
         </div>
 
-        {/* 2. Lưới Video / Avatar thành viên */}
-        <div className="flex-1 p-4 md:p-6 pb-24 flex items-center justify-center overflow-y-auto">
-          <div
-            className={`w-full h-full max-h-[78vh] grid gap-4 transition-all ${
-              displayParticipants.length === 1
-                ? 'grid-cols-1 max-w-4xl'
-                : displayParticipants.length === 2
-                ? 'grid-cols-1 md:grid-cols-2 max-w-5xl'
-                : displayParticipants.length <= 4
-                ? 'grid-cols-2 max-w-5xl'
-                : 'grid-cols-2 md:grid-cols-3 max-w-6xl'
-            }`}
-          >
-            {displayParticipants.map((participant) => (
-              <ParticipantTile
-                key={participant.connectionId || participant.identity}
-                participant={participant}
-              />
-            ))}
-          </div>
+        {/* 2. Lưới Video / Avatar thành viên (Spotlight Mode hoặc Multi-grid Mode) */}
+        <div className="flex-1 p-4 md:p-6 pb-28 flex flex-col items-center justify-center overflow-y-auto">
+          {spotlightParticipant ? (
+            <div className="w-full h-full flex flex-col space-y-4 max-w-6xl">
+              {/* Tiêu điểm chính Spotlight */}
+              <div className="flex-1 min-h-0 w-full relative rounded-2xl overflow-hidden shadow-2xl border-2 border-pulse-accent/50 shadow-glow-accent">
+                <ParticipantTile
+                  participant={spotlightParticipant}
+                  isSpotlight
+                  onTogglePin={() => setPinnedParticipantId(null)}
+                />
+              </div>
+
+              {/* Dải Thumbnail bên dưới */}
+              {thumbnailParticipants.length > 0 && (
+                <div className="h-32 flex items-center space-x-3 overflow-x-auto py-1 px-1 shrink-0">
+                  {thumbnailParticipants.map((participant) => (
+                    <div
+                      key={participant.connectionId || participant.identity}
+                      className="w-48 h-full shrink-0 cursor-pointer"
+                      onClick={() =>
+                        setPinnedParticipantId(
+                          participant.connectionId || participant.identity
+                        )
+                      }
+                    >
+                      <ParticipantTile
+                        participant={participant}
+                        isThumbnail
+                        onTogglePin={() =>
+                          setPinnedParticipantId(
+                            participant.connectionId || participant.identity
+                          )
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              className={`w-full h-full max-h-[78vh] grid gap-4 transition-all ${
+                displayParticipants.length === 1
+                  ? 'grid-cols-1 max-w-4xl'
+                  : displayParticipants.length === 2
+                  ? 'grid-cols-1 md:grid-cols-2 max-w-5xl'
+                  : displayParticipants.length <= 4
+                  ? 'grid-cols-2 max-w-5xl'
+                  : 'grid-cols-2 md:grid-cols-3 max-w-6xl'
+              }`}
+            >
+              {displayParticipants.map((participant) => (
+                <ParticipantTile
+                  key={participant.connectionId || participant.identity}
+                  participant={participant}
+                  onTogglePin={() =>
+                    setPinnedParticipantId(
+                      participant.connectionId || participant.identity
+                    )
+                  }
+                />
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* 3. Thanh điều khiển cuộc họp bên dưới */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center space-x-3 px-6 py-3 bg-pulse-panel/90 backdrop-blur-md border border-pulse-border rounded-2xl shadow-2xl z-20">
+        {/* 3. Thanh điều khiển cuộc họp Studio Dock */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center space-x-3 px-6 py-3 glass-dock rounded-2xl shadow-2xl z-20">
           {/* Bật/Tắt Micro */}
           <button
             onClick={toggleMute}
@@ -313,12 +398,22 @@ export const GroupMeetingStage: React.FC<GroupMeetingStageProps> = ({ channel })
 
 interface ParticipantTileProps {
   participant: VoiceParticipant;
+  isSpotlight?: boolean;
+  isThumbnail?: boolean;
+  onTogglePin?: () => void;
 }
 
-const ParticipantTile: React.FC<ParticipantTileProps> = ({ participant }) => {
+const ParticipantTile: React.FC<ParticipantTileProps> = ({
+  participant,
+  isSpotlight,
+  isThumbnail,
+  onTogglePin,
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const hasVideo = !!participant.videoTrack && (participant.isCameraOn || participant.isScreenSharing || !participant.isLocal);
+  const hasVideo =
+    !!participant.videoTrack &&
+    (participant.isCameraOn || participant.isScreenSharing || !participant.isLocal);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -342,10 +437,12 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({ participant }) => {
 
   return (
     <div
-      className={`relative w-full h-full min-h-[220px] bg-pulse-card rounded-2xl overflow-hidden flex flex-col items-center justify-center border-2 transition-all duration-200 shadow-xl ${
+      className={`relative w-full h-full ${
+        isThumbnail ? 'min-h-[120px]' : 'min-h-[220px]'
+      } bg-pulse-card/90 rounded-2xl overflow-hidden flex flex-col items-center justify-center border-2 transition-all duration-300 shadow-xl group ${
         participant.isSpeaking
-          ? 'border-emerald-500 shadow-emerald-500/20'
-          : 'border-pulse-border/60 hover:border-pulse-border'
+          ? 'border-emerald-500 shadow-glow-emerald ring-2 ring-emerald-500/30'
+          : 'border-white/5 hover:border-pulse-accent/40'
       }`}
     >
       {/* Luồng Video hoặc Ảnh đại diện */}
@@ -355,26 +452,28 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({ participant }) => {
           autoPlay
           playsInline
           muted={participant.isLocal}
-          className="w-full h-full object-cover bg-black"
+          className={`w-full h-full bg-black ${
+            participant.isScreenSharing ? 'object-contain' : 'object-cover'
+          }`}
         />
       ) : (
-        <div className="flex flex-col items-center justify-center p-6">
+        <div className="flex flex-col items-center justify-center p-4">
           {participant.avatarUrl ? (
             <img
               src={participant.avatarUrl}
               alt={participant.name}
-              className={`w-24 h-24 md:w-28 md:h-28 rounded-full object-cover shadow-2xl transition-transform duration-200 ${
-                participant.isSpeaking
-                  ? 'scale-105 ring-4 ring-emerald-500 ring-offset-4 ring-offset-pulse-card'
-                  : ''
+              className={`${
+                isThumbnail ? 'w-12 h-12' : 'w-24 h-24 md:w-28 md:h-28'
+              } rounded-full object-cover shadow-2xl transition-transform duration-300 ${
+                participant.isSpeaking ? 'scale-105 speaking-glow ring-4 ring-emerald-500' : ''
               }`}
             />
           ) : (
             <div
-              className={`w-24 h-24 md:w-28 md:h-28 rounded-full bg-gradient-to-tr from-pulse-accent to-purple-600 flex items-center justify-center text-white font-bold text-3xl shadow-2xl transition-transform duration-200 ${
-                participant.isSpeaking
-                  ? 'scale-105 ring-4 ring-emerald-500 ring-offset-4 ring-offset-pulse-card'
-                  : ''
+              className={`${
+                isThumbnail ? 'w-12 h-12 text-sm' : 'w-24 h-24 md:w-28 md:h-28 text-3xl'
+              } rounded-full bg-gradient-to-tr from-pulse-accent to-purple-600 flex items-center justify-center text-white font-bold shadow-2xl transition-transform duration-300 ${
+                participant.isSpeaking ? 'scale-105 speaking-glow ring-4 ring-emerald-500' : ''
               }`}
             >
               {initials}
@@ -383,10 +482,24 @@ const ParticipantTile: React.FC<ParticipantTileProps> = ({ participant }) => {
         </div>
       )}
 
+      {/* Nút Ghim Tiêu Điểm Spotlight khi hover */}
+      {onTogglePin && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onTogglePin();
+          }}
+          title={isSpotlight ? 'Bỏ ghim tiêu điểm' : 'Ghim làm tiêu điểm chính'}
+          className="absolute top-3 left-3 p-1.5 rounded-lg bg-black/60 hover:bg-pulse-accent text-white opacity-0 group-hover:opacity-100 transition duration-200 backdrop-blur-md border border-white/10"
+        >
+          {isSpotlight ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+        </button>
+      )}
+
       {/* Nhãn tên người tham gia */}
-      <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-semibold text-white flex items-center space-x-2 border border-white/10">
-        <span className="truncate max-w-[150px]">{participant.name}</span>
-        {participant.isLocal && <span className="text-emerald-400 text-[10px]">(Bạn)</span>}
+      <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-lg text-xs font-semibold text-white flex items-center space-x-1.5 border border-white/10 shadow-md">
+        <span className="truncate max-w-[130px]">{participant.name}</span>
+        {participant.isLocal && <span className="text-emerald-400 text-[10px] font-bold">(Bạn)</span>}
       </div>
 
       {/* Nhãn trạng thái Mic / Loa / Màn hình */}

@@ -240,14 +240,14 @@ export const ChannelSidebar: React.FC = () => {
   const isServerOwner = activeServer.ownerId === user?.id;
 
   return (
-    <aside className="w-60 bg-pulse-panel border-r border-pulse-border flex flex-col justify-between select-none shrink-0">
+    <aside className="w-64 bg-pulse-panel/95 border-r border-pulse-border/70 flex flex-col justify-between select-none shrink-0 shadow-lg">
       {/* Tiêu đề Máy chủ */}
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="h-14 border-b border-pulse-border flex items-center justify-between px-3 font-bold text-white shadow-sm shrink-0">
-          <span className="truncate max-w-[110px]" title={activeServer.name}>
+        <div className="h-14 border-b border-pulse-border/70 flex items-center justify-between px-3.5 font-bold text-white shadow-sm shrink-0 bg-pulse-deep/50 backdrop-blur-md">
+          <span className="truncate max-w-[120px] tracking-tight text-[15px]" title={activeServer.name}>
             {activeServer.name}
           </span>
-          <div className="flex items-center space-x-1">
+          <div className="flex items-center space-x-1.5">
             <button
               onClick={() => {
                 setDiscordWebhookInput(discordBridge.getWebhookUrl(activeServer.id));
@@ -255,7 +255,7 @@ export const ChannelSidebar: React.FC = () => {
                 setIsInviteModalOpen(true);
               }}
               title="Mời bạn bè bằng Mã mời, Link tự động hoặc Kết nối Cầu nối Discord"
-              className="text-xs bg-pulse-accent/20 hover:bg-pulse-accent text-pulse-accent hover:text-white px-2.5 py-1 rounded-md transition flex items-center space-x-1 border border-pulse-accent/40 font-semibold"
+              className="text-xs bg-pulse-accent/20 hover:bg-pulse-accent text-pulse-neon hover:text-white px-2.5 py-1.5 rounded-lg transition-all duration-200 flex items-center space-x-1 border border-pulse-accent/40 font-semibold shadow-sm hover:shadow-glow-accent"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>Mời bạn</span>
@@ -268,7 +268,7 @@ export const ChannelSidebar: React.FC = () => {
                 }
               }}
               title={isServerOwner ? 'Xoá Máy chủ' : 'Rời Máy chủ'}
-              className="p-1.5 rounded-md bg-pulse-card hover:bg-rose-500/20 text-pulse-muted hover:text-rose-400 transition"
+              className="p-1.5 rounded-lg bg-pulse-card/80 hover:bg-rose-500/20 text-pulse-muted hover:text-rose-400 border border-white/5 transition duration-200"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -342,13 +342,14 @@ export const ChannelSidebar: React.FC = () => {
                 const isDiscordChannel =
                   (discordMeta?.pulseChannelId && channel.id === discordMeta.pulseChannelId) ||
                   channel.name.toLowerCase().startsWith('discord');
+                const unread = channel.unreadCount || 0;
                 return (
                   <div
                     key={channel.id}
-                    className={`group flex items-center justify-between px-2 py-1.5 rounded-lg text-sm font-medium transition cursor-pointer ${
+                    className={`group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
                       isActive
-                        ? 'bg-pulse-hover text-white'
-                        : 'text-pulse-muted hover:bg-pulse-hover/50 hover:text-pulse-text'
+                        ? 'bg-pulse-accent/20 text-white font-semibold border border-pulse-accent/30 shadow-sm'
+                        : 'text-pulse-muted hover:bg-pulse-hover/60 hover:text-pulse-text'
                     }`}
                     onClick={() => handleChannelClick(channel)}
                   >
@@ -360,31 +361,38 @@ export const ChannelSidebar: React.FC = () => {
                       )}
                       <span className="truncate">{channel.name}</span>
                       {isDiscordChannel && (
-                        <span className="text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold shrink-0">
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold shrink-0">
                           DISCORD
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition">
-                      <button
-                        onClick={(e) => openEditChannelModal(channel, e)}
-                        title="Đổi tên / Chỉnh sửa kênh"
-                        className="text-pulse-muted hover:text-white p-0.5 rounded hover:bg-pulse-card transition"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (window.confirm(`Bạn có chắc muốn xoá kênh #${channel.name} không?`)) {
-                            await deleteChannel(channel.id);
-                          }
-                        }}
-                        title="Xoá kênh"
-                        className="text-pulse-muted hover:text-rose-400 p-0.5 rounded hover:bg-pulse-card transition"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="flex items-center space-x-1">
+                      {unread > 0 && !isActive && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-extrabold bg-pulse-rose text-white rounded-full shadow-glow-rose animate-pulse">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
+                      <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition">
+                        <button
+                          onClick={(e) => openEditChannelModal(channel, e)}
+                          title="Đổi tên / Chỉnh sửa kênh"
+                          className="text-pulse-muted hover:text-white p-1 rounded hover:bg-pulse-card transition"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Bạn có chắc muốn xoá kênh #${channel.name} không?`)) {
+                              await deleteChannel(channel.id);
+                            }
+                          }}
+                          title="Xoá kênh"
+                          className="text-pulse-muted hover:text-rose-400 p-1 rounded hover:bg-pulse-card transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -417,27 +425,27 @@ export const ChannelSidebar: React.FC = () => {
                   <div key={channel.id} className="space-y-1">
                     <div
                       onClick={() => handleChannelClick(channel)}
-                      className={`group w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      className={`group w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
                         isSelected
-                          ? 'bg-pulse-accent/20 text-pulse-accent border border-pulse-accent/30 font-semibold'
-                          : 'text-pulse-muted hover:bg-pulse-hover/50 hover:text-pulse-text'
+                          ? 'bg-pulse-accent/20 text-pulse-neon border border-pulse-accent/40 font-semibold shadow-glow-accent'
+                          : 'text-pulse-muted hover:bg-pulse-hover/60 hover:text-pulse-text'
                       }`}
                     >
                       <div className="flex items-center space-x-2 truncate">
                         <Volume2
-                          className={`w-4 h-4 shrink-0 ${
-                            isVoiceConnected ? 'text-emerald-400' : 'text-pulse-muted'
+                          className={`w-4 h-4 shrink-0 transition-colors ${
+                            isVoiceConnected ? 'text-emerald-400 animate-pulse' : 'text-pulse-muted group-hover:text-pulse-text'
                           }`}
                         />
                         <span className="truncate">{channel.name}</span>
                       </div>
 
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-1.5">
                         <div className="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition">
                           <button
                             onClick={(e) => openEditChannelModal(channel, e)}
                             title="Đổi tên phòng họp"
-                            className="text-pulse-muted hover:text-white p-0.5 rounded hover:bg-pulse-card transition"
+                            className="text-pulse-muted hover:text-white p-1 rounded hover:bg-pulse-card transition"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -449,18 +457,18 @@ export const ChannelSidebar: React.FC = () => {
                               }
                             }}
                             title="Xoá phòng họp"
-                            className="text-pulse-muted hover:text-rose-400 p-0.5 rounded hover:bg-pulse-card transition"
+                            className="text-pulse-muted hover:text-rose-400 p-1 rounded hover:bg-pulse-card transition"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                         {roomMembers.length > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
                             {roomMembers.length}
                           </span>
                         )}
                         {isVoiceConnected && (
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-glow-emerald animate-ping" />
                         )}
                       </div>
                     </div>

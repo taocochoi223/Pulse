@@ -27,6 +27,7 @@ export interface Channel {
   type: ChannelType;
   position: number;
   createdAt: string;
+  unreadCount?: number;
 }
 
 export interface Member {
@@ -88,6 +89,7 @@ export interface Message {
   createdAt: string;
   updatedAt?: string | null;
   attachments: Attachment[];
+  isMentioned?: boolean;
 }
 
 export interface ChannelMessagesResponse {

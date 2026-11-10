@@ -50,7 +50,7 @@ export const ServerSidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-[72px] bg-pulse-bg border-r border-pulse-border flex flex-col items-center py-3 space-y-2 select-none z-20">
+    <aside className="w-[72px] bg-pulse-deep border-r border-pulse-border/70 flex flex-col items-center py-3.5 space-y-2.5 select-none z-20">
       {/* Nút Khám phá & Chuyển nhanh Máy chủ */}
       <button
         onClick={() => {
@@ -58,15 +58,15 @@ export const ServerSidebar: React.FC = () => {
           setIsExplorerOpen(true);
         }}
         title="Khám phá & Chuyển nhanh Máy chủ"
-        className="w-12 h-12 rounded-2xl bg-pulse-card hover:bg-pulse-accent hover:rounded-xl transition-all duration-200 flex items-center justify-center text-pulse-muted hover:text-white shadow-sm"
+        className="w-12 h-12 rounded-2xl bg-pulse-card/80 hover:bg-pulse-accent hover:rounded-xl transition-all duration-300 flex items-center justify-center text-pulse-muted hover:text-white shadow-md hover:shadow-glow-accent group"
       >
-        <Compass className="w-6 h-6" />
+        <Compass className="w-5 h-5 transition-transform duration-300 group-hover:rotate-45" />
       </button>
 
-      <div className="w-8 h-[2px] bg-pulse-border rounded" />
+      <div className="w-8 h-[2px] bg-pulse-border/60 rounded-full" />
 
       {/* Danh sách Máy chủ */}
-      <div className="flex-1 w-full flex flex-col items-center space-y-2 overflow-y-auto no-scrollbar">
+      <div className="flex-1 w-full flex flex-col items-center space-y-2.5 overflow-y-auto no-scrollbar py-1">
         {servers.map((server) => {
           const isActive = activeServer?.id === server.id;
           const initials = server.name
@@ -78,20 +78,20 @@ export const ServerSidebar: React.FC = () => {
 
           return (
             <div key={server.id} className="relative group flex items-center justify-center w-full">
-              {/* Thanh đánh dấu đang chọn */}
+              {/* Thanh vạch chỉ báo phong cách Discord */}
               <div
-                className={`absolute left-0 w-1 bg-white rounded-r transition-all duration-200 ${
-                  isActive ? 'h-10' : 'h-2 group-hover:h-5'
+                className={`absolute left-0 w-1.5 bg-pulse-accent rounded-r-full transition-all duration-300 ${
+                  isActive ? 'h-9 shadow-glow-accent' : 'h-0 group-hover:h-4 opacity-75'
                 }`}
               />
 
               <button
                 onClick={() => setActiveServer(server)}
                 title={server.name}
-                className={`w-12 h-12 flex items-center justify-center font-bold text-sm transition-all duration-200 ${
+                className={`w-12 h-12 flex items-center justify-center font-bold text-sm transition-all duration-300 relative ${
                   isActive
-                    ? 'rounded-xl bg-pulse-accent text-white shadow-lg shadow-pulse-accent/30'
-                    : 'rounded-2xl bg-pulse-card text-pulse-text hover:rounded-xl hover:bg-pulse-hover hover:text-white'
+                    ? 'rounded-xl bg-gradient-to-tr from-pulse-accent to-indigo-500 text-white shadow-glow-accent scale-105'
+                    : 'rounded-2xl bg-pulse-card/90 text-pulse-muted hover:text-white hover:rounded-xl hover:bg-pulse-hover border border-white/5 hover:border-pulse-accent/30'
                 }`}
               >
                 {server.iconUrl ? (
@@ -101,7 +101,7 @@ export const ServerSidebar: React.FC = () => {
                     className="w-full h-full object-cover rounded-[inherit]"
                   />
                 ) : (
-                  <span>{initials}</span>
+                  <span className="tracking-tight">{initials}</span>
                 )}
               </button>
             </div>
@@ -116,9 +116,9 @@ export const ServerSidebar: React.FC = () => {
             setIsModalOpen(true);
           }}
           title="Tạo mới hoặc Tham gia Máy chủ"
-          className="w-12 h-12 rounded-2xl bg-pulse-card hover:bg-emerald-600 hover:rounded-xl transition-all duration-200 flex items-center justify-center text-emerald-400 hover:text-white group"
+          className="w-12 h-12 rounded-2xl bg-pulse-card/80 hover:bg-emerald-600 hover:rounded-xl transition-all duration-300 flex items-center justify-center text-emerald-400 hover:text-white border border-dashed border-emerald-500/30 hover:border-transparent hover:shadow-glow-emerald group"
         >
-          <Plus className="w-6 h-6 transition-transform group-hover:rotate-90 duration-200" />
+          <Plus className="w-5 h-5 transition-transform group-hover:rotate-90 duration-300" />
         </button>
       </div>
 
